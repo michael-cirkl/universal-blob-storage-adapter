@@ -1,0 +1,46 @@
+version: '3.8'
+# Compose file for starting emulators
+
+services:
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+      - "4571:4571"
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10000/devstoreaccount1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  gcp-storage-emulator:
+    image: oittaa/gcp-storage-emulator
+    container_name: gcp-storage-emulator
+    ports:
+      - "9023:9023"
+    environment:
+      - PORT=9023
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9023/storage/v1/b"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
