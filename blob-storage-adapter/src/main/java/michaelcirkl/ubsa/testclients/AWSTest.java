@@ -2,16 +2,16 @@ package michaelcirkl.ubsa.testclients;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.*;
 
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 
 public class AWSTest implements BlobStoreTest {
     @Override
@@ -20,7 +20,7 @@ public class AWSTest implements BlobStoreTest {
         String key = "example.txt";
         String content = "Hello from Java and LocalStack S3!";
 
-        S3Client s3 = S3Client.builder()
+        S3AsyncClient s3 = S3AsyncClient.builder()
                 .endpointOverride(URI.create("http://localhost:4566"))
                 .region(Region.US_EAST_1)
                 .forcePathStyle(true)
@@ -31,24 +31,28 @@ public class AWSTest implements BlobStoreTest {
 
         try {
             // 1. Create bucket (if not exists)
-            s3.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
+            CompletableFuture<CreateBucketResponse> create =
+                    s3.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
+            create.get();
+
 
             // 2. Upload a "blob" (text content)
-            s3.putObject(PutObjectRequest.builder()
-                            .bucket(bucketName)
-                            .key(key)
-                            .build(),
-                    RequestBody.fromString(content));
+            CompletableFuture<PutObjectResponse> put =
+                    s3.putObject(
+                            PutObjectRequest.builder().bucket(bucketName).key(key).build(),
+                            AsyncRequestBody.fromByteBuffer(ByteBuffer.wrap(content.getBytes()))
+                    );
+            put.get();
 
             System.out.println("✅ Uploaded blob to S3 bucket.");
 
             // 3. Read back the blob
-            var response = s3.getObject(GetObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(key)
-                    .build());
+            CompletableFuture<String> response =
+                    s3.getObject(GetObjectRequest.builder().bucket(bucketName).key(key).build(),
+                                    AsyncResponseTransformer.toBytes())
+                            .thenApply(r -> new String(r.asByteArray(), StandardCharsets.UTF_8));
 
-            String downloaded = new String(response.readAllBytes(), StandardCharsets.UTF_8);
+            String downloaded = new String(response.get().getBytes(), StandardCharsets.UTF_8);
             System.out.println("📄 Blob content:");
             System.out.println(downloaded);
 

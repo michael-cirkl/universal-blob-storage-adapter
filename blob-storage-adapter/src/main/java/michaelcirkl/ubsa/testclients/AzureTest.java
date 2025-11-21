@@ -1,9 +1,7 @@
 package michaelcirkl.ubsa.testclients;
 
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.core.util.BinaryData;
+import com.azure.storage.blob.*;
 import com.azure.storage.common.StorageSharedKeyCredential;
 
 import java.io.ByteArrayInputStream;
@@ -17,35 +15,34 @@ public class AzureTest implements BlobStoreTest {
         String accountName = "devstoreaccount1";
         String accountKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
 
+        String blobName = "hello.txt";
+        String content = "Hello from Java to Azurite!";
+        String containerName = "my-container";
+
         String endpoint = String.format("http://127.0.0.1:10000/%s", accountName);
 
         // 2. Auth
         StorageSharedKeyCredential credential = new StorageSharedKeyCredential(accountName, accountKey);
-        BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
+        BlobServiceAsyncClient blobServiceClient = new BlobServiceClientBuilder()
                 .endpoint(endpoint)
                 .credential(credential)
-                .buildClient();
+                .buildAsyncClient();
 
         // 3. Create container (if not exists)
-        String containerName = "my-container";
-        BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
-        if (!containerClient.exists()) {
-            containerClient.create();
+        BlobContainerAsyncClient blobContainerAsyncClient = blobServiceClient.getBlobContainerAsyncClient(containerName);
+
+        if (Boolean.FALSE.equals(blobContainerAsyncClient.exists().block())) {
+            blobContainerAsyncClient = blobServiceClient.createBlobContainer(containerName).block();
         }
 
         // 4. Upload blob
-        String blobName = "hello.txt";
-        String content = "Hello from Java to Azurite!";
-        InputStream dataStream = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
+        BlobAsyncClient blobAsyncClient = blobContainerAsyncClient.getBlobAsyncClient(blobName);
 
-        BlobClient blobClient = containerClient.getBlobClient(blobName);
-        blobClient.upload(dataStream, content.length(), true);  // true = overwrite
+        blobAsyncClient.upload(BinaryData.fromBytes(content.getBytes()), true).block();
 
         // 5. Download blob
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        blobClient.download(outputStream);
-        String downloadedContent = outputStream.toString(StandardCharsets.UTF_8);
+        BinaryData binaryData = blobAsyncClient.downloadContent().block();
+        System.out.println("Downloaded content: " + binaryData);
 
-        System.out.println("Downloaded content: " + downloadedContent);
     }
 }

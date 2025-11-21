@@ -1,7 +1,13 @@
 package michaelcirkl.ubsa.testclients;
 
+import com.google.api.core.ApiFuture;
 import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.*;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
+import java.util.concurrent.ExecutionException;
 
 public class GCPTest implements BlobStoreTest {
     @Override
@@ -19,8 +25,8 @@ public class GCPTest implements BlobStoreTest {
                 .build()
                 .getService();
 
-        String bucketName = "test-bucket";
-        String blobName = "hello.txt";
+        String bucketName = "test-bucket2";
+        String blobName = "hello2.txt";
         String content = "Hello from Java using REST client and GCP emulator!";
 
         // 1. Create bucket (if doesn't exist)
@@ -34,10 +40,28 @@ public class GCPTest implements BlobStoreTest {
         BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobName)
                 .setContentType("text/plain")
                 .build();
-        storage.create(blobInfo, content.getBytes());
-        System.out.println("Uploaded blob: " + blobName);
 
+        try {
+            BlobWriteSession writeSession = storage.blobWriteSession(blobInfo);
+            WritableByteChannel channel = writeSession.open();
+            channel.write(ByteBuffer.wrap(content.getBytes()));
+            channel.close();  // finalizes upload
+            ApiFuture<BlobInfo> result = writeSession.getResult();
+            BlobInfo created = result.get();
+        } catch (IOException | ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+/*
         // 3. Download blob
+        try {
+            ApiFuture<BlobReadSession> future = storage.blobReadSession(blobInfo.getBlobId());
+            ApiFuture<ZeroCopySupport.DisposableByteString> read = future.get().readAs(ReadProjectionConfigs.asFutureByteString());
+            System.out.println(read.get().byteString().toString());
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+*/
         byte[] downloaded = storage.readAllBytes(bucketName, blobName);
         System.out.println("Downloaded content: " + new String(downloaded));
     }
