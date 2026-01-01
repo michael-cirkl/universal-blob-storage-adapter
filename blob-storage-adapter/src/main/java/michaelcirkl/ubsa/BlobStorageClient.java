@@ -7,34 +7,35 @@ public interface BlobStorageClient {
 
     CompletableFuture<Boolean> bucketExists(String bucketName);
 
-    CompletableFuture<Blob> getBlob(String bucketName, String blobName);
+    CompletableFuture<Blob> getBlob(String bucketName, String blobKey);
 
     CompletableFuture<Void> deleteBucket(String bucketName);
 
-    CompletableFuture<Boolean> blobExists(String bucketName, String blobName);
+    CompletableFuture<Boolean> blobExists(String bucketName, String blobKey);
 
     CompletableFuture<String> createBlob(String bucketName, Blob blob);
 
-    CompletableFuture<Void> deleteBlob(String bucketName, String blobName);
+    CompletableFuture<Void> deleteBlob(String bucketName, String blobKey);
 
     CompletableFuture<String> copyBlob(
             String sourceBucketName,
-            String sourceBlobName,
+            String sourceBlobKey,
             String destinationBucketName,
-            String destinationBlobName
+            String destinationBlobKey
     );
 
     CompletableFuture<Set<Bucket>> listAllBuckets();
 
     CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix);
 
-    CompletableFuture<Void> createBucket(String bucketName);
+    CompletableFuture<Void> createBucket(Bucket bucket);
 
     CompletableFuture<Set<Blob>> getAllBlobsInBucket(String bucketName);
 
     CompletableFuture<Void> deleteBucketIfExists(String bucketName);
 
-    CompletableFuture<byte[]> getByteRange(String bucketName, String blobName, long startInclusive, long endInclusive);
+    CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive);
 
     CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob);
 }
+

@@ -1,0 +1,1 @@
+Docker compose fail to launch emulators is in library folder.

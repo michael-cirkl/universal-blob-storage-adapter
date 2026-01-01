@@ -1,5 +1,6 @@
 package michaelcirkl.ubsa.gcp;
 
+
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageClient;
 import michaelcirkl.ubsa.Bucket;
@@ -8,13 +9,14 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class GCPClientImpl implements BlobStorageClient {
+
     @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {
         return null;
     }
 
     @Override
-    public CompletableFuture<Blob> getBlob(String bucketName, String blobName) {
+    public CompletableFuture<Blob> getBlob(String bucketName, String blobKey) {
         return null;
     }
 
@@ -24,7 +26,7 @@ public class GCPClientImpl implements BlobStorageClient {
     }
 
     @Override
-    public CompletableFuture<Boolean> blobExists(String bucketName, String blobName) {
+    public CompletableFuture<Boolean> blobExists(String bucketName, String blobKey) {
         return null;
     }
 
@@ -34,12 +36,12 @@ public class GCPClientImpl implements BlobStorageClient {
     }
 
     @Override
-    public CompletableFuture<Void> deleteBlob(String bucketName, String blobName) {
+    public CompletableFuture<Void> deleteBlob(String bucketName, String blobKey) {
         return null;
     }
 
     @Override
-    public CompletableFuture<String> copyBlob(String sourceBucketName, String sourceBlobName, String destinationBucketName, String destinationBlobName) {
+    public CompletableFuture<String> copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
         return null;
     }
 
@@ -54,7 +56,7 @@ public class GCPClientImpl implements BlobStorageClient {
     }
 
     @Override
-    public CompletableFuture<Void> createBucket(String bucketName) {
+    public CompletableFuture<Void> createBucket(Bucket bucket) {
         return null;
     }
 
@@ -69,7 +71,7 @@ public class GCPClientImpl implements BlobStorageClient {
     }
 
     @Override
-    public CompletableFuture<byte[]> getByteRange(String bucketName, String blobName, long startInclusive, long endInclusive) {
+    public CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
         return null;
     }
 
