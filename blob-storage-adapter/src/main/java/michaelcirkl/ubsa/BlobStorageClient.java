@@ -5,45 +5,36 @@ import java.util.concurrent.CompletableFuture;
 
 public interface BlobStorageClient {
 
-    CompletableFuture<Boolean> bucketExists();
+    CompletableFuture<Boolean> bucketExists(String bucketName);
 
-    CompletableFuture<Blob> getBlob();
+    CompletableFuture<Blob> getBlob(String bucketName, String blobName);
 
-    CompletableFuture<Void> deleteBucket();
+    CompletableFuture<Void> deleteBucket(String bucketName);
 
-    CompletableFuture<Boolean> blobExists();
+    CompletableFuture<Boolean> blobExists(String bucketName, String blobName);
 
-    CompletableFuture<String> createBlob();
+    CompletableFuture<String> createBlob(String bucketName, Blob blob);
 
-    CompletableFuture<Void> deleteBlob();
+    CompletableFuture<Void> deleteBlob(String bucketName, String blobName);
 
-    CompletableFuture<String> copyBlob();
+    CompletableFuture<String> copyBlob(
+            String sourceBucketName,
+            String sourceBlobName,
+            String destinationBucketName,
+            String destinationBlobName
+    );
 
     CompletableFuture<Set<Bucket>> listAllBuckets();
 
-    CompletableFuture<Set<Blob>> listBlobsByPrefix();
+    CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix);
 
-    CompletableFuture<Void> createBucket();
+    CompletableFuture<Void> createBucket(String bucketName);
 
-    CompletableFuture<Set<Blob>> getAllBlobsInBucket();
+    CompletableFuture<Set<Blob>> getAllBlobsInBucket(String bucketName);
 
-    CompletableFuture<Void> deleteBucketIfExists();
+    CompletableFuture<Void> deleteBucketIfExists(String bucketName);
 
-    CompletableFuture<byte[]> getByteRange();
+    CompletableFuture<byte[]> getByteRange(String bucketName, String blobName, long startInclusive, long endInclusive);
 
-    CompletableFuture<String> createBlobIfNotExists();
-
-
-
-
-
-    CompletableFuture<Void> startUpload();
-
-    CompletableFuture<Void> uploadPart();
-
-    CompletableFuture<Void> uploadComplete();
-
-    CompletableFuture<Set<String>> uploadsList();
-
-    CompletableFuture<Void> uploadAbort();
+    CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob);
 }

@@ -1,23 +1,22 @@
 package michaelcirkl.ubsa;
 
-import michaelcirkl.ubsa.testclients.AWSTest;
-import michaelcirkl.ubsa.testclients.AzureTest;
-import michaelcirkl.ubsa.testclients.BlobStoreTest;
-import michaelcirkl.ubsa.testclients.GCPTest;
+import michaelcirkl.ubsa.aws.AWSClientBuilderImpl;
+import michaelcirkl.ubsa.azure.AzureClientBuilderImpl;
+import michaelcirkl.ubsa.gcp.GCPClientBuilderImpl;
 
-public class WrapperFactory {
+public class BuilderFactory {
     private static Provider currentProvider;
-    public static BlobStoreTest getWrapper() {
+    public static BlobStorageClientBuilder getClientBuilder() {
         String SDKType = System.getProperty("blobstorage.provider");
         if ("AWS".equalsIgnoreCase(SDKType)) {
             currentProvider = Provider.AWS;
-            return new AWSTest();
+            return new AWSClientBuilderImpl();
         } else if ("Azure".equalsIgnoreCase(SDKType)) {
             currentProvider = Provider.Azure;
-            return new AzureTest();
+            return new AzureClientBuilderImpl();
         } else if ("GCP".equalsIgnoreCase(SDKType)) {
             currentProvider = Provider.GCP;
-            return new GCPTest();
+            return new GCPClientBuilderImpl();
         }
 
         throw new IllegalArgumentException(String.format("Invalid Blobstorage provider: %s. Pass blobstorage.provider as a VM option.", SDKType));

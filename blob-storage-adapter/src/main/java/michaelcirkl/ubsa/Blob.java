@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 
 public interface Blob {
    String getName();
+   byte[] getContent();
    long getSize();
    String getKey();
    LocalDateTime lastModified();
