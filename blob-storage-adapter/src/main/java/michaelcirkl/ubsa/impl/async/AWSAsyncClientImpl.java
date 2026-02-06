@@ -1,8 +1,8 @@
-package michaelcirkl.ubsa.impl;
+package michaelcirkl.ubsa.impl.async;
 
 
 import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageClient;
+import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -36,10 +36,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
-public class AWSClientImpl implements BlobStorageClient {
+public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     private final S3AsyncClient client;
 
-    public AWSClientImpl(S3AsyncClient client) {
+    public AWSAsyncClientImpl(S3AsyncClient client) {
         this.client = client;
     }
 

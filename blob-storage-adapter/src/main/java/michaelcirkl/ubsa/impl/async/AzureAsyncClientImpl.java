@@ -1,26 +1,24 @@
-package michaelcirkl.ubsa.impl;
+package michaelcirkl.ubsa.impl.async;
 
-
-import com.google.cloud.storage.Storage;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageClient;
+import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public class GCPClientImpl implements BlobStorageClient {
-    private final Storage client;
+public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
+    private final BlobServiceAsyncClient client;
 
-    public GCPClientImpl(Storage client) {
+    public AzureAsyncClientImpl(BlobServiceAsyncClient client) {
         this.client = client;
-        //check if client has gRPC
     }
 
     @Override
     public Provider getProvider() {
-        return Provider.GCP;
+        return Provider.Azure;
     }
 
     @Override

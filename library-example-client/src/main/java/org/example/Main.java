@@ -1,8 +1,10 @@
 package org.example;
 
 
-import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.impl.AWSClientImpl;
+import michaelcirkl.ubsa.Blob;
+import michaelcirkl.ubsa.BlobStorageAsyncClient;
+import michaelcirkl.ubsa.BlobStorageClientFactory;
+import michaelcirkl.ubsa.Bucket;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -22,7 +24,8 @@ public class Main {
                         AwsBasicCredentials.create("test", "test")))
                 .build();
 
-        BlobStorageClient client = new AWSClientImpl(s3);
+        BlobStorageAsyncClient client = BlobStorageClientFactory.getAsyncClient(s3);
+        System.out.println("Running provider: " + client.getProvider());
 
         String bucketName = "mybucket";
 

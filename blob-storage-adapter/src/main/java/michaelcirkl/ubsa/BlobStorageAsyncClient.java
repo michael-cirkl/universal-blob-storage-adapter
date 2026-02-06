@@ -3,7 +3,7 @@ package michaelcirkl.ubsa;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public interface BlobStorageClient {
+public interface BlobStorageAsyncClient {
     Provider getProvider();
 
     CompletableFuture<Boolean> bucketExists(String bucketName);
