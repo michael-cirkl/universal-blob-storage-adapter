@@ -4,6 +4,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public interface BlobStorageClient {
+    Provider getProvider();
 
     CompletableFuture<Boolean> bucketExists(String bucketName);
 

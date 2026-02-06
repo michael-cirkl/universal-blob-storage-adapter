@@ -10,7 +10,6 @@ public class Blob {
     private final String key;
     private final LocalDateTime lastModified;
     private final String encoding;
-    private final String contentMD5;
     private final String etag;
     private final Map<String, String> userMetadata;
     private final URI publicURI;
@@ -23,7 +22,6 @@ public class Blob {
         this.key = builder.key;
         this.lastModified = builder.lastModified;
         this.encoding = builder.encoding;
-        this.contentMD5 = builder.contentMD5;
         this.etag = builder.etag;
         this.userMetadata = builder.userMetadata;
         this.publicURI = builder.publicURI;
@@ -49,10 +47,6 @@ public class Blob {
 
     public String encoding() {
         return encoding;
-    }
-
-    public String contentMD5() {
-        return contentMD5;
     }
 
     public String getEtag() {
@@ -85,7 +79,6 @@ public class Blob {
         private String key;
         private LocalDateTime lastModified;
         private String encoding;
-        private String contentMD5;
         private String etag;
         private Map<String, String> userMetadata;
         private URI publicURI;
@@ -114,11 +107,6 @@ public class Blob {
 
         public Builder encoding(String encoding) {
             this.encoding = encoding;
-            return this;
-        }
-
-        public Builder contentMD5(String contentMD5) {
-            this.contentMD5 = contentMD5;
             return this;
         }
 

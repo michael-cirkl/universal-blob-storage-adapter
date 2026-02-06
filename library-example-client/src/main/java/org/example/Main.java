@@ -2,6 +2,7 @@ package org.example;
 
 
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.impl.AWSClientImpl;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -21,7 +22,7 @@ public class Main {
                         AwsBasicCredentials.create("test", "test")))
                 .build();
 
-        BlobStorageClient client = BlobStorageClientFactory.getClient(s3);
+        BlobStorageClient client = new AWSClientImpl(s3);
 
         String bucketName = "mybucket";
 

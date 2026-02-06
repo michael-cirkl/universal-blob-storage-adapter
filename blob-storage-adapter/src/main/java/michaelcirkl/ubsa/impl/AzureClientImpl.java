@@ -4,6 +4,7 @@ import com.azure.storage.blob.BlobServiceAsyncClient;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageClient;
 import michaelcirkl.ubsa.Bucket;
+import michaelcirkl.ubsa.Provider;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -13,6 +14,11 @@ public class AzureClientImpl implements BlobStorageClient {
 
     public AzureClientImpl(BlobServiceAsyncClient client) {
         this.client = client;
+    }
+
+    @Override
+    public Provider getProvider() {
+        return Provider.Azure;
     }
 
     @Override
