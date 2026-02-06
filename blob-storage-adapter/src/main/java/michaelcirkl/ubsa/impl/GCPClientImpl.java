@@ -1,6 +1,7 @@
-package michaelcirkl.ubsa.gcp;
+package michaelcirkl.ubsa.impl;
 
 
+import com.google.cloud.storage.Storage;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageClient;
 import michaelcirkl.ubsa.Bucket;
@@ -9,6 +10,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class GCPClientImpl implements BlobStorageClient {
+    private final Storage client;
+
+    public GCPClientImpl(Storage client) {
+        this.client = client;
+        //check if client has gRPC
+    }
 
     @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {

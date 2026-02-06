@@ -1,14 +1,11 @@
-package michaelcirkl.ubsa.aws;
+package michaelcirkl.ubsa.impl;
 
 
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageClient;
 import michaelcirkl.ubsa.Bucket;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.*;
 
@@ -16,27 +13,16 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 public class AWSClientImpl implements BlobStorageClient {
     private final S3AsyncClient client;
-    private final String endpoint;
-    public AWSClientImpl(String endpoint, String accessKey, String secretKey, String region) {
-        this.endpoint = endpoint;
-        client = S3AsyncClient.builder()
-                .endpointOverride(URI.create(endpoint))
-                .region(Region.of(region))
-                .forcePathStyle(true)
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretKey)))
-                .build();
+
+    public AWSClientImpl(S3AsyncClient client) {
+        this.client = client;
     }
 
     @Override
@@ -127,10 +113,10 @@ public class AWSClientImpl implements BlobStorageClient {
     }
 
     @Override
-    public CompletableFuture<Set<Bucket>> listAllBuckets() {
+    public CompletableFuture<Set<michaelcirkl.ubsa.Bucket>> listAllBuckets() {
         return client.listBuckets(ListBucketsRequest.builder().build())
                 .thenApply(response -> response.buckets().stream()
-                        .map(bucket -> Bucket.builder()
+                        .map(bucket -> michaelcirkl.ubsa.Bucket.builder()
                                 .name(bucket.name())
                                 .publicURI(buildBucketUri(bucket.name()))
                                 .creationDate(toLocalDateTime(bucket.creationDate()))

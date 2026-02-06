@@ -2,18 +2,26 @@ package org.example;
 
 
 import michaelcirkl.ubsa.*;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 
 public class Main {
     public static void main(String[] args) throws ExecutionException, InterruptedException {
-        BlobStorageClientBuilder clientBuilder = BuilderFactory.getClientBuilder();
-        BlobStorageClient client = clientBuilder
-                .endpoint("http://localhost:4566")
-                .region("us-east-1")
-                .credentials("test", "test")
+        S3AsyncClient s3 = S3AsyncClient.builder()
+                .endpointOverride(URI.create("http://localhost:4566"))
+                .region(Region.US_EAST_1)
+                .forcePathStyle(true)
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create("test", "test")))
                 .build();
+
+        BlobStorageClient client = BlobStorageClientFactory.getClient(s3);
 
         String bucketName = "mybucket";
 

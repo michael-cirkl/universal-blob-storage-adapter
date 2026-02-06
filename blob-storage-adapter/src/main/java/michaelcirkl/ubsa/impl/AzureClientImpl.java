@@ -1,5 +1,6 @@
-package michaelcirkl.ubsa.azure;
+package michaelcirkl.ubsa.impl;
 
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageClient;
 import michaelcirkl.ubsa.Bucket;
@@ -8,6 +9,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class AzureClientImpl implements BlobStorageClient {
+    private final BlobServiceAsyncClient client;
+
+    public AzureClientImpl(BlobServiceAsyncClient client) {
+        this.client = client;
+    }
 
     @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {
