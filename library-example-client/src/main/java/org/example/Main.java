@@ -12,6 +12,8 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.net.URL;
 import java.util.concurrent.ExecutionException;
 
 public class Main {
@@ -40,6 +42,10 @@ public class Main {
         System.out.println(client.blobExists(bucketName, "example").get());
         byte[] content = client.getBlob(bucketName, "example").get().getContent();
         System.out.println(new String(content, StandardCharsets.UTF_8));
+        URL presignedPut = client.generatePutUrl(bucketName, "example", Duration.ofMinutes(10), "text/plain").get();
+        URL presignedGet = client.generateGetUrl(bucketName, "example", Duration.ofMinutes(10)).get();
+        System.out.println("Presigned PUT URL: " + presignedPut);
+        System.out.println("Presigned GET URL: " + presignedGet);
         client.deleteBlob(bucketName, "example").get();
         System.out.println(false == client.blobExists(bucketName, "example").get());
     }

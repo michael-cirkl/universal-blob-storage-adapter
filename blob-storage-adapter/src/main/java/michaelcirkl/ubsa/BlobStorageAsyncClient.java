@@ -1,5 +1,7 @@
 package michaelcirkl.ubsa;
 
+import java.net.URL;
+import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -38,5 +40,10 @@ public interface BlobStorageAsyncClient {
     CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive);
 
     CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob);
+
+    CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry);
+
+    CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
+
 }
 

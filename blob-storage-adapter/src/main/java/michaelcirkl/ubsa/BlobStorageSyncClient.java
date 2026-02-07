@@ -1,6 +1,9 @@
 package michaelcirkl.ubsa;
 
+import java.net.URL;
+import java.time.Duration;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public interface BlobStorageSyncClient {
     Provider getProvider();
@@ -37,4 +40,8 @@ public interface BlobStorageSyncClient {
     byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive);
 
     String createBlobIfNotExists(String bucketName, Blob blob);
+
+    URL generateGetUrl(String bucket, String objectKey, Duration expiry);
+
+    URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
 }

@@ -19,11 +19,6 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>michaelcirkl.ubsa</groupId>
-            <artifactId>universal-blob-storage-adapter</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
         <!--
          -->
         <dependency>
