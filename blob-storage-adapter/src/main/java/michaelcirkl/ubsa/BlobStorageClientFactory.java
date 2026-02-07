@@ -6,7 +6,12 @@ public class BlobStorageClientFactory {
 
     public static BlobStorageAsyncClient getAsyncClient(Object client) {
         for (AsyncAdapter adapter : AsyncAdapter.values()) {
-            BlobStorageAsyncClient adapted = adapter.tryAdapt(client);
+            BlobStorageAsyncClient adapted = adaptClient(
+                    client,
+                    adapter.sdkClassName,
+                    adapter.implClassName,
+                    BlobStorageAsyncClient.class
+            );
             if (adapted != null) {
                 return adapted;
             }
@@ -17,7 +22,12 @@ public class BlobStorageClientFactory {
 
     public static BlobStorageSyncClient getSyncClient(Object client) {
         for (SyncAdapter adapter : SyncAdapter.values()) {
-            BlobStorageSyncClient adapted = adapter.tryAdapt(client);
+            BlobStorageSyncClient adapted = adaptClient(
+                    client,
+                    adapter.sdkClassName,
+                    adapter.implClassName,
+                    BlobStorageSyncClient.class
+            );
             if (adapted != null) {
                 return adapted;
             }
@@ -38,10 +48,6 @@ public class BlobStorageClientFactory {
             this.sdkClassName = sdkClassName;
             this.implClassName = implClassName;
         }
-
-        public BlobStorageAsyncClient tryAdapt(Object client) {
-            return adaptClient(client, sdkClassName, implClassName, BlobStorageAsyncClient.class);
-        }
     }
 
     private enum SyncAdapter {
@@ -55,10 +61,6 @@ public class BlobStorageClientFactory {
         SyncAdapter(String sdkClassName, String implClassName) {
             this.sdkClassName = sdkClassName;
             this.implClassName = implClassName;
-        }
-
-        public BlobStorageSyncClient tryAdapt(Object client) {
-            return adaptClient(client, sdkClassName, implClassName, BlobStorageSyncClient.class);
         }
     }
 
