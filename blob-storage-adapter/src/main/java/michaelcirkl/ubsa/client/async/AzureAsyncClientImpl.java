@@ -1,6 +1,16 @@
 package michaelcirkl.ubsa.client.async;
 
+import com.azure.core.util.BinaryData;
+import com.azure.storage.blob.BlobAsyncClient;
+import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
+import com.azure.storage.blob.models.BlobHttpHeaders;
+import com.azure.storage.blob.models.BlobItem;
+import com.azure.storage.blob.models.BlobItemProperties;
+import com.azure.storage.blob.models.BlobProperties;
+import com.azure.storage.blob.models.BlobRange;
+import com.azure.storage.blob.models.ListBlobsOptions;
+import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.Blob;
@@ -8,10 +18,15 @@ import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 
+import java.net.URI;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -29,76 +44,156 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {
-        return null;
+        return client.getBlobContainerAsyncClient(bucketName)
+                .exists()
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<Blob> getBlob(String bucketName, String blobKey) {
-        return null;
+        BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
+        CompletableFuture<BlobProperties> propertiesFuture = blobClient.getProperties().toFuture();
+        CompletableFuture<BinaryData> contentFuture = blobClient.downloadContent().toFuture();
+
+        return propertiesFuture.thenCombine(contentFuture, (properties, content) -> Blob.builder()
+                .bucket(bucketName)
+                .key(blobKey)
+                .content(content.toBytes())
+                .size(properties.getBlobSize())
+                .lastModified(toLocalDateTime(properties.getLastModified()))
+                .encoding(properties.getContentEncoding())
+                .etag(properties.getETag())
+                .userMetadata(properties.getMetadata())
+                .publicURI(toUri(blobClient.getBlobUrl()))
+                .expires(toLocalDateTime(properties.getExpiresOn()))
+                .build());
     }
 
     @Override
     public CompletableFuture<Void> deleteBucket(String bucketName) {
-        return null;
+        return client.getBlobContainerAsyncClient(bucketName)
+                .delete()
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<Boolean> blobExists(String bucketName, String blobKey) {
-        return null;
+        return blobClient(bucketName, blobKey)
+                .exists()
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<String> createBlob(String bucketName, Blob blob) {
-        return null;
+        BlobAsyncClient blobClient = blobClient(bucketName, blob.getKey());
+        BlobParallelUploadOptions uploadOptions = buildUploadOptions(blob);
+        return blobClient.uploadWithResponse(uploadOptions)
+                .map(response -> response.getValue().getETag())
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<Void> deleteBlob(String bucketName, String blobKey) {
-        return null;
+        return blobClient(bucketName, blobKey)
+                .deleteIfExists()
+                .then()
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<String> copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
-        return null;
+        BlobAsyncClient sourceBlobClient = blobClient(sourceBucketName, sourceBlobKey);
+        BlobAsyncClient destinationBlobClient = blobClient(destinationBucketName, destinationBlobKey);
+        return destinationBlobClient.copyFromUrl(sourceBlobClient.getBlobUrl())
+                .flatMap(copyId -> destinationBlobClient.getProperties().map(BlobProperties::getETag))
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<Set<Bucket>> listAllBuckets() {
-        return null;
+        return client.listBlobContainers()
+                .collectList()
+                .map(containerItems -> {
+                    Set<Bucket> buckets = new HashSet<>();
+                    containerItems.forEach(item -> {
+                        OffsetDateTime lastModified = item.getProperties() == null
+                                ? null
+                                : item.getProperties().getLastModified();
+                        buckets.add(Bucket.builder()
+                                .name(item.getName())
+                                .publicURI(toUri(client.getBlobContainerAsyncClient(item.getName()).getBlobContainerUrl()))
+                                .creationDate(toLocalDateTime(lastModified))
+                                .lastModified(toLocalDateTime(lastModified))
+                                .build());
+                    });
+                    return buckets;
+                })
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
-        return null;
+        BlobContainerAsyncClient containerClient = client.getBlobContainerAsyncClient(bucketName);
+        ListBlobsOptions options = new ListBlobsOptions();
+        if (prefix != null && !prefix.isBlank()) {
+            options.setPrefix(prefix);
+        }
+
+        return containerClient.listBlobs(options, null)
+                .collectList()
+                .map(blobItems -> mapBlobsFromList(bucketName, containerClient, blobItems))
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<Void> createBucket(Bucket bucket) {
-        return null;
+        return client.createBlobContainer(bucket.getName())
+                .then()
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<Set<Blob>> getAllBlobsInBucket(String bucketName) {
-        return null;
+        return listBlobsByPrefix(bucketName, null);
     }
 
     @Override
     public CompletableFuture<Void> deleteBucketIfExists(String bucketName) {
-        return null;
+        return client.getBlobContainerAsyncClient(bucketName)
+                .deleteIfExists()
+                .then()
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
-        return null;
+        validateRange(startInclusive, endInclusive);
+        BlobRange blobRange = new BlobRange(startInclusive, endInclusive - startInclusive + 1);
+
+        return blobClient(bucketName, blobKey)
+                .downloadStreamWithResponse(blobRange, null, null, false)
+                .flatMap(response -> BinaryData.fromFlux(response.getValue()))
+                .map(BinaryData::toBytes)
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
-        return null;
+        BlobAsyncClient blobClient = blobClient(bucketName, blob.getKey());
+        return blobClient.exists()
+                .flatMap(exists -> {
+                    if (exists) {
+                        return blobClient.getProperties().map(BlobProperties::getETag);
+                    }
+                    return blobClient.uploadWithResponse(buildUploadOptions(blob))
+                            .map(response -> response.getValue().getETag());
+                })
+                .toFuture();
     }
 
     @Override
     public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {
+        validateExpiry(expiry);
         var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
         BlobSasPermission permission = new BlobSasPermission()
                 .setReadPermission(true);
@@ -109,6 +204,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+        validateExpiry(expiry);
         var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
         BlobSasPermission permission = new BlobSasPermission()
                 .setCreatePermission(true)
@@ -118,11 +214,79 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         return CompletableFuture.completedFuture(buildSasUrl(blobClient.getBlobUrl(), sas));
     }
 
+    private BlobAsyncClient blobClient(String bucketName, String blobKey) {
+        return client.getBlobContainerAsyncClient(bucketName).getBlobAsyncClient(blobKey);
+    }
+
+    private static BlobParallelUploadOptions buildUploadOptions(Blob blob) {
+        byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
+        BlobParallelUploadOptions uploadOptions = new BlobParallelUploadOptions(BinaryData.fromBytes(content));
+
+        BlobHttpHeaders headers = new BlobHttpHeaders();
+        boolean hasHeaders = false;
+        if (blob.encoding() != null && !blob.encoding().isBlank()) {
+            headers.setContentEncoding(blob.encoding());
+            hasHeaders = true;
+        }
+        if (hasHeaders) {
+            uploadOptions.setHeaders(headers);
+        }
+
+        Map<String, String> metadata = blob.getUserMetadata();
+        if (metadata != null && !metadata.isEmpty()) {
+            uploadOptions.setMetadata(metadata);
+        }
+
+        return uploadOptions;
+    }
+
+    private static Set<Blob> mapBlobsFromList(String bucketName, BlobContainerAsyncClient containerClient, java.util.List<BlobItem> blobItems) {
+        Set<Blob> blobs = new HashSet<>();
+        blobItems.forEach(item -> {
+            BlobItemProperties properties = item.getProperties();
+            long size = properties != null && properties.getContentLength() != null
+                    ? properties.getContentLength()
+                    : 0L;
+            blobs.add(Blob.builder()
+                    .bucket(bucketName)
+                    .key(item.getName())
+                    .size(size)
+                    .lastModified(toLocalDateTime(properties == null ? null : properties.getLastModified()))
+                    .encoding(properties == null ? null : properties.getContentEncoding())
+                    .etag(properties == null ? null : properties.getETag())
+                    .userMetadata(item.getMetadata())
+                    .publicURI(toUri(containerClient.getBlobAsyncClient(item.getName()).getBlobUrl()))
+                    .expires(toLocalDateTime(properties == null ? null : properties.getExpiryTime()))
+                    .build());
+        });
+        return blobs;
+    }
+
+    private static LocalDateTime toLocalDateTime(OffsetDateTime time) {
+        return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
+    }
+
+    private static URI toUri(String uriValue) {
+        return URI.create(uriValue);
+    }
+
     private static URL buildSasUrl(String baseUrl, String sasToken) {
         try {
             return new URL(baseUrl + "?" + sasToken);
         } catch (MalformedURLException e) {
             throw new IllegalStateException("Failed to build SAS URL for Azure Blob Storage.", e);
+        }
+    }
+
+    private static void validateExpiry(Duration expiry) {
+        if (expiry == null || expiry.isZero() || expiry.isNegative()) {
+            throw new IllegalArgumentException("Expiry must be a positive duration.");
+        }
+    }
+
+    private static void validateRange(long startInclusive, long endInclusive) {
+        if (startInclusive < 0 || endInclusive < startInclusive) {
+            throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
     }
 }
