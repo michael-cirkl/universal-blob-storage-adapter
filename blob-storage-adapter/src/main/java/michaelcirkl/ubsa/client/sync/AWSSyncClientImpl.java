@@ -1,14 +1,12 @@
-package michaelcirkl.ubsa.impl.async;
-
+package michaelcirkl.ubsa.client.sync;
 
 import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageAsyncClient;
+import michaelcirkl.ubsa.BlobStorageSyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import software.amazon.awssdk.core.ResponseBytes;
-import software.amazon.awssdk.core.async.AsyncRequestBody;
-import software.amazon.awssdk.core.async.AsyncResponseTransformer;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.S3ServiceClientConfiguration;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
@@ -18,6 +16,7 @@ import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
@@ -25,7 +24,6 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -43,19 +41,16 @@ import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 
-public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
+public class AWSSyncClientImpl implements BlobStorageSyncClient {
     private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
     private static final String PATH_STYLE_PROBE_KEY = "probe";
 
-    private final S3AsyncClient client;
+    private final S3Client client;
 
-    public AWSAsyncClientImpl(S3AsyncClient client) {
+    public AWSSyncClientImpl(S3Client client) {
         this.client = client;
     }
-
 
     @Override
     public Provider getProvider() {
@@ -63,61 +58,58 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Boolean> bucketExists(String bucketName) {
+    public Boolean bucketExists(String bucketName) {
         HeadBucketRequest request = HeadBucketRequest.builder().bucket(bucketName).build();
-        return client.headBucket(request)
-                .handle((response, error) -> {
-                    if (error == null) {
-                        return true;
-                    }
-                    Throwable cause = unwrapCompletionException(error);
-                    if (isNotFound(cause)) {
-                        return false;
-                    }
-                    throw new CompletionException(cause);
-                });
+        try {
+            client.headBucket(request);
+            return true;
+        } catch (RuntimeException error) {
+            if (isNotFound(error)) {
+                return false;
+            }
+            throw error;
+        }
     }
 
     @Override
-    public CompletableFuture<Blob> getBlob(String bucketName, String blobKey) {
+    public Blob getBlob(String bucketName, String blobKey) {
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
 
-        return client.getObject(request, AsyncResponseTransformer.toBytes())
-                .thenApply(responseBytes -> buildBlobFromGetObject(bucketName, blobKey, responseBytes));
+        ResponseBytes<GetObjectResponse> responseBytes = client.getObjectAsBytes(request);
+        return buildBlobFromGetObject(bucketName, blobKey, responseBytes);
     }
 
     @Override
-    public CompletableFuture<Void> deleteBucket(String bucketName) {
+    public Void deleteBucket(String bucketName) {
         DeleteBucketRequest request = DeleteBucketRequest.builder()
                 .bucket(bucketName)
                 .build();
-        return client.deleteBucket(request).thenApply(response -> null);
+        client.deleteBucket(request);
+        return null;
     }
 
     @Override
-    public CompletableFuture<Boolean> blobExists(String bucketName, String blobKey) {
+    public Boolean blobExists(String bucketName, String blobKey) {
         HeadObjectRequest request = HeadObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return client.headObject(request)
-                .handle((response, error) -> {
-                    if (error == null) {
-                        return true;
-                    }
-                    Throwable cause = unwrapCompletionException(error);
-                    if (isNotFound(cause)) {
-                        return false;
-                    }
-                    throw new CompletionException(cause);
-                });
+        try {
+            client.headObject(request);
+            return true;
+        } catch (RuntimeException error) {
+            if (isNotFound(error)) {
+                return false;
+            }
+            throw error;
+        }
     }
 
     @Override
-    public CompletableFuture<String> createBlob(String bucketName, Blob blob) {
+    public String createBlob(String bucketName, Blob blob) {
         PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blob.getKey());
@@ -135,123 +127,109 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
         byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
         PutObjectRequest request = requestBuilder.build();
-        return client.putObject(request, AsyncRequestBody.fromBytes(content))
-                .thenApply(PutObjectResponse::eTag);
+        PutObjectResponse response = client.putObject(request, RequestBody.fromBytes(content));
+        return response.eTag();
     }
 
     @Override
-    public CompletableFuture<Void> deleteBlob(String bucketName, String blobKey) {
+    public Void deleteBlob(String bucketName, String blobKey) {
         DeleteObjectRequest request = DeleteObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return client.deleteObject(request).thenApply(response -> null);
+        client.deleteObject(request);
+        return null;
     }
 
     @Override
-    public CompletableFuture<String> copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
+    public String copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
         String copySource = sourceBucketName + "/" + sourceBlobKey;
         CopyObjectRequest request = CopyObjectRequest.builder()
                 .copySource(copySource)
                 .destinationBucket(destinationBucketName)
                 .destinationKey(destinationBlobKey)
                 .build();
-        return client.copyObject(request)
-                .thenApply(CopyObjectResponse::copyObjectResult)
-                .thenApply(result -> result == null ? null : result.eTag());
+        CopyObjectResponse response = client.copyObject(request);
+        return response.copyObjectResult() == null ? null : response.copyObjectResult().eTag();
     }
 
     @Override
-    public CompletableFuture<Set<Bucket>> listAllBuckets() {
-        return client.listBuckets()
-                .thenApply(this::mapBuckets);
+    public Set<Bucket> listAllBuckets() {
+        return mapBuckets(client.listBuckets());
     }
 
     @Override
-    public CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
+    public Set<Blob> listBlobsByPrefix(String bucketName, String prefix) {
         ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
                 .bucket(bucketName);
         if (prefix != null && !prefix.isBlank()) {
             requestBuilder.prefix(prefix);
         }
-        return client.listObjectsV2(requestBuilder.build())
-                .thenApply(response -> mapBlobsFromList(bucketName, response));
+        ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
+        return mapBlobsFromList(bucketName, response);
     }
 
     @Override
-    public CompletableFuture<Void> createBucket(Bucket bucket) {
+    public Void createBucket(Bucket bucket) {
         CreateBucketRequest request = CreateBucketRequest.builder()
                 .bucket(bucket.getName())
                 .build();
-        return client.createBucket(request).thenApply(response -> null);
+        client.createBucket(request);
+        return null;
     }
 
     @Override
-    public CompletableFuture<Set<Blob>> getAllBlobsInBucket(String bucketName) {
+    public Set<Blob> getAllBlobsInBucket(String bucketName) {
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .build();
-        return client.listObjectsV2(request)
-                .thenApply(response -> mapBlobsFromList(bucketName, response));
+        return mapBlobsFromList(bucketName, client.listObjectsV2(request));
     }
 
     @Override
-    public CompletableFuture<Void> deleteBucketIfExists(String bucketName) {
+    public Void deleteBucketIfExists(String bucketName) {
         DeleteBucketRequest request = DeleteBucketRequest.builder()
                 .bucket(bucketName)
                 .build();
-        return client.deleteBucket(request)
-                .handle((response, error) -> {
-                    if (error == null) {
-                        return null;
-                    }
-                    Throwable cause = unwrapCompletionException(error);
-                    if (isNotFound(cause)) {
-                        return null;
-                    }
-                    throw new CompletionException(cause);
-                });
+        try {
+            client.deleteBucket(request);
+        } catch (RuntimeException error) {
+            if (!isNotFound(error)) {
+                throw error;
+            }
+        }
+        return null;
     }
 
     @Override
-    public CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
+    public byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
         String range = "bytes=" + startInclusive + "-" + endInclusive;
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blobKey)
                 .range(range)
                 .build();
-        return client.getObject(request, AsyncResponseTransformer.toBytes())
-                .thenApply(ResponseBytes::asByteArray);
+        return client.getObjectAsBytes(request).asByteArray();
     }
 
     @Override
-    public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
+    public String createBlobIfNotExists(String bucketName, Blob blob) {
         HeadObjectRequest headRequest = HeadObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blob.getKey())
                 .build();
-        CompletableFuture<String> existing = client.headObject(headRequest)
-                .handle((response, error) -> {
-                    if (error == null) {
-                        return response.eTag();
-                    }
-                    Throwable cause = unwrapCompletionException(error);
-                    if (isNotFound(cause)) {
-                        return null;
-                    }
-                    throw new CompletionException(cause);
-                });
-        return existing.thenCompose(etag -> {
-            if (etag != null) {
-                return CompletableFuture.completedFuture(etag);
+        try {
+            return client.headObject(headRequest).eTag();
+        } catch (RuntimeException error) {
+            if (isNotFound(error)) {
+                return createBlob(bucketName, blob);
             }
-            return createBlob(bucketName, blob);
-        });
+            throw error;
+        }
     }
 
     @Override
-    public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {
+    public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucket)
@@ -263,12 +241,12 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .build();
         try (S3Presigner presigner = createPresignerFromClientConfig()) {
             PresignedGetObjectRequest presigned = presigner.presignGetObject(presignRequest);
-            return CompletableFuture.completedFuture(presigned.url());
+            return presigned.url();
         }
     }
 
     @Override
-    public CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+    public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
         validateExpiry(expiry);
         PutObjectRequest.Builder putBuilder = PutObjectRequest.builder()
                 .bucket(bucket)
@@ -282,7 +260,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .build();
         try (S3Presigner presigner = createPresignerFromClientConfig()) {
             PresignedPutObjectRequest presigned = presigner.presignPutObject(presignRequest);
-            return CompletableFuture.completedFuture(presigned.url());
+            return presigned.url();
         }
     }
 
@@ -340,13 +318,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 ? "s3://" + bucketName
                 : "s3://" + bucketName + "/" + key;
         return URI.create(uri);
-    }
-
-    private static Throwable unwrapCompletionException(Throwable error) {
-        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
-            return completionException.getCause();
-        }
-        return error;
     }
 
     private static boolean isNotFound(Throwable error) {

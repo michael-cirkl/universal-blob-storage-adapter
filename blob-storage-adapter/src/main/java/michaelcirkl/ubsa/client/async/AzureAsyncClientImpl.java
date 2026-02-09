@@ -1,32 +1,30 @@
-package michaelcirkl.ubsa.impl.async;
+package michaelcirkl.ubsa.client.async;
 
-
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.HttpMethod;
-import com.google.cloud.storage.Storage;
+import com.azure.storage.blob.BlobServiceAsyncClient;
+import com.azure.storage.blob.sas.BlobSasPermission;
+import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Duration;
-import java.util.ArrayList;
+import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
-public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
-    private final Storage client;
+public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
+    private final BlobServiceAsyncClient client;
 
-    public GCPAsyncClientImpl(Storage client) {
+    public AzureAsyncClientImpl(BlobServiceAsyncClient client) {
         this.client = client;
-        //check if client has gRPC
     }
 
     @Override
     public Provider getProvider() {
-        return Provider.GCP;
+        return Provider.Azure;
     }
 
     @Override
@@ -101,33 +99,30 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {
-        long seconds = toPositiveSeconds(expiry);
-        BlobInfo blobInfo = BlobInfo.newBuilder(bucket, objectKey).build();
-        URL url = client.signUrl(blobInfo, seconds, TimeUnit.SECONDS);
-        return CompletableFuture.completedFuture(url);
+        var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
+        BlobSasPermission permission = new BlobSasPermission()
+                .setReadPermission(true);
+        BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
+        String sas = blobClient.generateSas(values);
+        return CompletableFuture.completedFuture(buildSasUrl(blobClient.getBlobUrl(), sas));
     }
 
     @Override
     public CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        long seconds = toPositiveSeconds(expiry);
-        BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucket, objectKey);
-        if (contentType != null && !contentType.isBlank()) {
-            blobBuilder.setContentType(contentType);
-        }
-        BlobInfo blobInfo = blobBuilder.build();
-        var options = new ArrayList<Storage.SignUrlOption>();
-        options.add(Storage.SignUrlOption.httpMethod(HttpMethod.PUT));
-        if (contentType != null && !contentType.isBlank()) {
-            options.add(Storage.SignUrlOption.withContentType());
-        }
-        URL url = client.signUrl(blobInfo, seconds, TimeUnit.SECONDS, options.toArray(new Storage.SignUrlOption[0]));
-        return CompletableFuture.completedFuture(url);
+        var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
+        BlobSasPermission permission = new BlobSasPermission()
+                .setCreatePermission(true)
+                .setWritePermission(true);
+        BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
+        String sas = blobClient.generateSas(values);
+        return CompletableFuture.completedFuture(buildSasUrl(blobClient.getBlobUrl(), sas));
     }
 
-    private static long toPositiveSeconds(Duration expiry) {
-        if (expiry == null || expiry.isZero() || expiry.isNegative()) {
-            throw new IllegalArgumentException("Expiry must be a positive duration.");
+    private static URL buildSasUrl(String baseUrl, String sasToken) {
+        try {
+            return new URL(baseUrl + "?" + sasToken);
+        } catch (MalformedURLException e) {
+            throw new IllegalStateException("Failed to build SAS URL for Azure Blob Storage.", e);
         }
-        return expiry.toSeconds();
     }
 }
