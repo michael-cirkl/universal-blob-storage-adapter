@@ -30,7 +30,7 @@ import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class AwsIamMain {
+public class AwsAsyncMain {
     private record RoleSetup(
             String roleArn,
             String policyArn

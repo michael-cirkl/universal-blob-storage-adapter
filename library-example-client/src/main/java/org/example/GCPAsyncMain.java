@@ -1,8 +1,8 @@
 package org.example;
 
-import com.azure.storage.blob.BlobServiceAsyncClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
-import com.azure.storage.common.StorageSharedKeyCredential;
+import com.google.cloud.NoCredentials;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
@@ -14,29 +14,28 @@ import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class Main {
+public class GCPAsyncMain {
     public static void main(String[] args) throws ExecutionException, InterruptedException {
-        String accountName = System.getenv().getOrDefault("AZURE_ACCOUNT_NAME", "devstoreaccount1");
-        String accountKey = System.getenv().getOrDefault(
-                "AZURE_ACCOUNT_KEY",
-                "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+        String emulatorHost = System.getenv().getOrDefault(
+                "GCP_EMULATOR_ENDPOINT",
+                System.getenv().getOrDefault("STORAGE_EMULATOR_HOST", "http://localhost:9023")
         );
-        String endpoint = System.getenv().getOrDefault(
-                "AZURITE_ENDPOINT",
-                "http://127.0.0.1:10000/" + accountName
-        );
+        String projectId = System.getenv().getOrDefault("GCP_PROJECT_ID", "demo-project");
 
         String suffix = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 999999));
-        String bucketName = "my-container-" + suffix;
+        String bucketName = "my-gcp-bucket-" + suffix;
         String blobKey = "example.txt";
 
-        StorageSharedKeyCredential credential = new StorageSharedKeyCredential(accountName, accountKey);
-        BlobServiceAsyncClient azureClient = new BlobServiceClientBuilder()
-                .endpoint(endpoint)
-                .credential(credential)
-                .buildAsyncClient();
+        StorageOptions.Builder optionsBuilder = StorageOptions.newBuilder()
+                .setProjectId(projectId);
+        if (emulatorHost != null && !emulatorHost.isBlank()) {
+            optionsBuilder
+                    .setHost(emulatorHost)
+                    .setCredentials(NoCredentials.getInstance());
+        }
+        Storage gcpClient = optionsBuilder.build().getService();
 
-        BlobStorageAsyncClient client = BlobStorageClientFactory.getAsyncClient(azureClient);
+        BlobStorageAsyncClient client = BlobStorageClientFactory.getAsyncClient(gcpClient);
         System.out.println("Running provider: " + client.getProvider());
 
         try {
@@ -46,7 +45,7 @@ public class Main {
             Blob blob = Blob.builder()
                     .bucket(bucketName)
                     .key(blobKey)
-                    .content("hello from Azure async client".getBytes(StandardCharsets.UTF_8))
+                    .content("hello from GCP async client".getBytes(StandardCharsets.UTF_8))
                     .build();
             String etag = client.createBlob(bucketName, blob).get();
             System.out.println("Created blob etag: " + etag);
@@ -55,10 +54,14 @@ public class Main {
             byte[] content = client.getBlob(bucketName, blobKey).get().getContent();
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));
 
-            URL putUrl = client.generatePutUrl(bucketName, blobKey, Duration.ofMinutes(10), "text/plain").get();
-            URL getUrl = client.generateGetUrl(bucketName, blobKey, Duration.ofMinutes(10)).get();
-            System.out.println("SAS PUT URL: " + putUrl);
-            System.out.println("SAS GET URL: " + getUrl);
+            try {
+                URL putUrl = client.generatePutUrl(bucketName, blobKey, Duration.ofMinutes(10), "text/plain").get();
+                URL getUrl = client.generateGetUrl(bucketName, blobKey, Duration.ofMinutes(10)).get();
+                System.out.println("Signed PUT URL: " + putUrl);
+                System.out.println("Signed GET URL: " + getUrl);
+            } catch (Exception signingError) {
+                System.err.println("Signing warning: " + signingError.getMessage());
+            }
         } finally {
             try {
                 client.deleteBlob(bucketName, blobKey).get();
