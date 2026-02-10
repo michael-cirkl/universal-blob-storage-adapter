@@ -8,6 +8,8 @@ import java.util.concurrent.CompletableFuture;
 public interface BlobStorageAsyncClient {
     Provider getProvider();
 
+    <T> T unwrap(Class<T> nativeType);
+
     CompletableFuture<Boolean> bucketExists(String bucketName);
 
     CompletableFuture<Blob> getBlob(String bucketName, String blobKey);
@@ -46,4 +48,3 @@ public interface BlobStorageAsyncClient {
     CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
 
 }
-

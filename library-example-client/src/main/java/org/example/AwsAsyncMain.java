@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.iam.model.DeleteRoleRequest;
 import software.amazon.awssdk.services.iam.model.DetachRolePolicyRequest;
 import software.amazon.awssdk.services.iam.model.IamException;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
@@ -70,8 +71,13 @@ public class AwsAsyncMain {
                 .credentialsProvider(StaticCredentialsProvider.create(
                         roleCredentials))
                 .build()) {
+
             BlobStorageAsyncClient client = BlobStorageClientFactory.getAsyncClient(s3);
+
+            S3AsyncClient nativeS3 = client.unwrap(S3AsyncClient.class);
+
             System.out.println("Running provider: " + client.getProvider());
+            System.out.println("Unwrapped native client type: " + nativeS3.getClass().getSimpleName());
 
             client.createBucket(Bucket.builder().name(bucketName).build()).get();
             System.out.println("Bucket exists: " + client.bucketExists(bucketName).get());
@@ -86,6 +92,12 @@ public class AwsAsyncMain {
 
             byte[] content = client.getBlob(bucketName, "example").get().getContent();
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));
+
+            URL nativeObjectUrl = nativeS3.utilities().getUrl(GetUrlRequest.builder()
+                    .bucket(bucketName)
+                    .key("example")
+                    .build());
+            System.out.println("Native SDK object URL via unwrap: " + nativeObjectUrl);
 
             URL presignedPut = client.generatePutUrl(bucketName, "example", Duration.ofMinutes(10), "text/plain").get();
             URL presignedGet = client.generateGetUrl(bucketName, "example", Duration.ofMinutes(10)).get();

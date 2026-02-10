@@ -8,6 +8,8 @@ import java.util.concurrent.CompletableFuture;
 public interface BlobStorageSyncClient {
     Provider getProvider();
 
+    <T> T unwrap(Class<T> nativeType);
+
     Boolean bucketExists(String bucketName);
 
     Blob getBlob(String bucketName, String blobKey);

@@ -44,6 +44,14 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
+    public <T> T unwrap(Class<T> nativeType) {
+        if (nativeType == null) {
+            throw new IllegalArgumentException("Class type to unwrap must not be null.");
+        }
+        return nativeType.isInstance(client) ? nativeType.cast(client) : null;
+    }
+
+    @Override
     public Boolean bucketExists(String bucketName) {
         return client.get(bucketName) != null;
     }

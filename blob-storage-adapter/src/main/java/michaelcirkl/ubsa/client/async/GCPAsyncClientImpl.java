@@ -55,6 +55,14 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
+    public <T> T unwrap(Class<T> nativeType) {
+        if (nativeType == null) {
+            throw new IllegalArgumentException("Class type to unwrap must not be null.");
+        }
+        return nativeType.isInstance(client) ? nativeType.cast(client) : null;
+    }
+
+    @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {
         return CompletableFuture.supplyAsync(() -> client.get(bucketName) != null);
     }
