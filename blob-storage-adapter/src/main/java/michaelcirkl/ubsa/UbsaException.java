@@ -4,8 +4,6 @@ import com.azure.storage.blob.models.BlobStorageException;
 import com.google.cloud.storage.StorageException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
-import java.util.Objects;
-
 public class UbsaException extends RuntimeException {
     private final RuntimeException nativeException;
     private final Class<? extends RuntimeException> nativeType;
@@ -35,7 +33,7 @@ public class UbsaException extends RuntimeException {
     }
 
     public <T extends RuntimeException> T unwrap() {
-        return castNativeException();
+        return (T) nativeType.cast(nativeException);
     }
 
     private <T extends RuntimeException> UbsaException(
@@ -44,11 +42,7 @@ public class UbsaException extends RuntimeException {
             Class<T> nativeType
     ) {
         super(message, nativeException);
-        this.nativeException = Objects.requireNonNull(nativeException, "nativeException must not be null");
-        this.nativeType = Objects.requireNonNull(nativeType, "nativeType must not be null");
-    }
-
-    private <T extends RuntimeException> T castNativeException() {
-        return (T) nativeType.cast(nativeException);
+        this.nativeException = nativeException;
+        this.nativeType = nativeType;
     }
 }
