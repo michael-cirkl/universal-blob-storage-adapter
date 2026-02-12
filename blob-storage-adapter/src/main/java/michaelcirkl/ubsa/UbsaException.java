@@ -8,10 +8,10 @@ import java.util.Objects;
 
 public class UbsaException extends RuntimeException {
     private final RuntimeException nativeException;
+    private final Class<? extends RuntimeException> nativeType;
 
     public UbsaException(String message, S3Exception nativeException) {
-        super(message, nativeException);
-        this.nativeException = Objects.requireNonNull(nativeException, "nativeException must not be null");
+        this(message, nativeException, S3Exception.class);
     }
 
     public UbsaException(S3Exception nativeException, String message) {
@@ -19,8 +19,7 @@ public class UbsaException extends RuntimeException {
     }
 
     public UbsaException(String message, BlobStorageException nativeException) {
-        super(message, nativeException);
-        this.nativeException = Objects.requireNonNull(nativeException, "nativeException must not be null");
+        this(message, nativeException, BlobStorageException.class);
     }
 
     public UbsaException(BlobStorageException nativeException, String message) {
@@ -28,15 +27,28 @@ public class UbsaException extends RuntimeException {
     }
 
     public UbsaException(String message, StorageException nativeException) {
-        super(message, nativeException);
-        this.nativeException = Objects.requireNonNull(nativeException, "nativeException must not be null");
+        this(message, nativeException, StorageException.class);
     }
 
     public UbsaException(StorageException nativeException, String message) {
         this(message, nativeException);
     }
 
-    public RuntimeException unwrap() {
-        return nativeException;
+    public <T extends RuntimeException> T unwrap() {
+        return castNativeException();
+    }
+
+    private <T extends RuntimeException> UbsaException(
+            String message,
+            T nativeException,
+            Class<T> nativeType
+    ) {
+        super(message, nativeException);
+        this.nativeException = Objects.requireNonNull(nativeException, "nativeException must not be null");
+        this.nativeType = Objects.requireNonNull(nativeType, "nativeType must not be null");
+    }
+
+    private <T extends RuntimeException> T castNativeException() {
+        return (T) nativeType.cast(nativeException);
     }
 }
