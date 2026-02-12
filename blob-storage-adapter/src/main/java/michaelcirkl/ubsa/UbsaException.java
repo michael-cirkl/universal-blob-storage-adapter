@@ -12,24 +12,12 @@ public class UbsaException extends RuntimeException {
         this(message, nativeException, S3Exception.class);
     }
 
-    public UbsaException(S3Exception nativeException, String message) {
-        this(message, nativeException);
-    }
-
     public UbsaException(String message, BlobStorageException nativeException) {
         this(message, nativeException, BlobStorageException.class);
     }
 
-    public UbsaException(BlobStorageException nativeException, String message) {
-        this(message, nativeException);
-    }
-
     public UbsaException(String message, StorageException nativeException) {
         this(message, nativeException, StorageException.class);
-    }
-
-    public UbsaException(StorageException nativeException, String message) {
-        this(message, nativeException);
     }
 
     public <T extends RuntimeException> T unwrap() {
