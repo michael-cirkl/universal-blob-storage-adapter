@@ -7,6 +7,7 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
+import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlobProperties;
 import com.azure.storage.blob.models.BlobRange;
 import com.azure.storage.blob.models.ListBlobsOptions;
@@ -17,6 +18,7 @@ import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
+import michaelcirkl.ubsa.UbsaException;
 
 import java.net.URI;
 import java.net.MalformedURLException;
@@ -52,95 +54,145 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public Boolean bucketExists(String bucketName) {
-        return client.getBlobContainerClient(bucketName).exists();
+        try {
+            return client.getBlobContainerClient(bucketName).exists();
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to check whether Azure container exists: " + bucketName, error);
+        }
     }
 
     @Override
     public Blob getBlob(String bucketName, String blobKey) {
-        BlobClient blobClient = blobClient(bucketName, blobKey);
-        BlobProperties properties = blobClient.getProperties();
-        BinaryData content = blobClient.downloadContent();
+        try {
+            BlobClient blobClient = blobClient(bucketName, blobKey);
+            BlobProperties properties = blobClient.getProperties();
+            BinaryData content = blobClient.downloadContent();
 
-        return Blob.builder()
-                .bucket(bucketName)
-                .key(blobKey)
-                .content(content.toBytes())
-                .size(properties.getBlobSize())
-                .lastModified(toLocalDateTime(properties.getLastModified()))
-                .encoding(properties.getContentEncoding())
-                .etag(properties.getETag())
-                .userMetadata(properties.getMetadata())
-                .publicURI(toUri(blobClient.getBlobUrl()))
-                .expires(toLocalDateTime(properties.getExpiresOn()))
-                .build();
+            return Blob.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .content(content.toBytes())
+                    .size(properties.getBlobSize())
+                    .lastModified(toLocalDateTime(properties.getLastModified()))
+                    .encoding(properties.getContentEncoding())
+                    .etag(properties.getETag())
+                    .userMetadata(properties.getMetadata())
+                    .publicURI(toUri(blobClient.getBlobUrl()))
+                    .expires(toLocalDateTime(properties.getExpiresOn()))
+                    .build();
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to get Azure blob " + blobKey + " from container " + bucketName, error);
+        }
     }
 
     @Override
     public Void deleteBucket(String bucketName) {
-        client.getBlobContainerClient(bucketName).delete();
-        return null;
+        try {
+            client.getBlobContainerClient(bucketName).delete();
+            return null;
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to delete Azure container: " + bucketName, error);
+        }
     }
 
     @Override
     public Boolean blobExists(String bucketName, String blobKey) {
-        return blobClient(bucketName, blobKey).exists();
+        try {
+            return blobClient(bucketName, blobKey).exists();
+        } catch (BlobStorageException error) {
+            throw new UbsaException(
+                    "Failed to check whether Azure blob exists: " + bucketName + "/" + blobKey,
+                    error
+            );
+        }
     }
 
     @Override
     public String createBlob(String bucketName, Blob blob) {
-        BlobClient blobClient = blobClient(bucketName, blob.getKey());
-        BlobParallelUploadOptions uploadOptions = buildUploadOptions(blob);
-        return blobClient.uploadWithResponse(uploadOptions, null, null)
-                .getValue()
-                .getETag();
+        try {
+            BlobClient blobClient = blobClient(bucketName, blob.getKey());
+            BlobParallelUploadOptions uploadOptions = buildUploadOptions(blob);
+            return blobClient.uploadWithResponse(uploadOptions, null, null)
+                    .getValue()
+                    .getETag();
+        } catch (BlobStorageException error) {
+            throw new UbsaException(
+                    "Failed to create Azure blob " + blob.getKey() + " in container " + bucketName,
+                    error
+            );
+        }
     }
 
     @Override
     public Void deleteBlob(String bucketName, String blobKey) {
-        blobClient(bucketName, blobKey).deleteIfExists();
-        return null;
+        try {
+            blobClient(bucketName, blobKey).deleteIfExists();
+            return null;
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to delete Azure blob " + bucketName + "/" + blobKey, error);
+        }
     }
 
     @Override
     public String copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
-        BlobClient sourceBlobClient = blobClient(sourceBucketName, sourceBlobKey);
-        BlobClient destinationBlobClient = blobClient(destinationBucketName, destinationBlobKey);
-        destinationBlobClient.copyFromUrl(sourceBlobClient.getBlobUrl());
-        return destinationBlobClient.getProperties().getETag();
+        try {
+            BlobClient sourceBlobClient = blobClient(sourceBucketName, sourceBlobKey);
+            BlobClient destinationBlobClient = blobClient(destinationBucketName, destinationBlobKey);
+            destinationBlobClient.copyFromUrl(sourceBlobClient.getBlobUrl());
+            return destinationBlobClient.getProperties().getETag();
+        } catch (BlobStorageException error) {
+            throw new UbsaException(
+                    "Failed to copy Azure blob from " + sourceBucketName + "/" + sourceBlobKey
+                            + " to " + destinationBucketName + "/" + destinationBlobKey,
+                    error
+            );
+        }
     }
 
     @Override
     public Set<Bucket> listAllBuckets() {
-        Set<Bucket> buckets = new HashSet<>();
-        client.listBlobContainers().forEach(item -> {
-            OffsetDateTime lastModified = item.getProperties() == null
-                    ? null
-                    : item.getProperties().getLastModified();
-            buckets.add(Bucket.builder()
-                    .name(item.getName())
-                    .publicURI(toUri(client.getBlobContainerClient(item.getName()).getBlobContainerUrl()))
-                    .creationDate(toLocalDateTime(lastModified))
-                    .lastModified(toLocalDateTime(lastModified))
-                    .build());
-        });
-        return buckets;
+        try {
+            Set<Bucket> buckets = new HashSet<>();
+            client.listBlobContainers().forEach(item -> {
+                OffsetDateTime lastModified = item.getProperties() == null
+                        ? null
+                        : item.getProperties().getLastModified();
+                buckets.add(Bucket.builder()
+                        .name(item.getName())
+                        .publicURI(toUri(client.getBlobContainerClient(item.getName()).getBlobContainerUrl()))
+                        .creationDate(toLocalDateTime(lastModified))
+                        .lastModified(toLocalDateTime(lastModified))
+                        .build());
+            });
+            return buckets;
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to list Azure containers", error);
+        }
     }
 
     @Override
     public Set<Blob> listBlobsByPrefix(String bucketName, String prefix) {
-        BlobContainerClient containerClient = client.getBlobContainerClient(bucketName);
-        ListBlobsOptions options = new ListBlobsOptions();
-        if (prefix != null && !prefix.isBlank()) {
-            options.setPrefix(prefix);
-        }
+        try {
+            BlobContainerClient containerClient = client.getBlobContainerClient(bucketName);
+            ListBlobsOptions options = new ListBlobsOptions();
+            if (prefix != null && !prefix.isBlank()) {
+                options.setPrefix(prefix);
+            }
 
-        return mapBlobsFromList(bucketName, containerClient, containerClient.listBlobs(options, null));
+            return mapBlobsFromList(bucketName, containerClient, containerClient.listBlobs(options, null));
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to list Azure blobs in container " + bucketName, error);
+        }
     }
 
     @Override
     public Void createBucket(Bucket bucket) {
-        client.createBlobContainer(bucket.getName());
-        return null;
+        try {
+            client.createBlobContainer(bucket.getName());
+            return null;
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to create Azure container " + bucket.getName(), error);
+        }
     }
 
     @Override
@@ -150,51 +202,77 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public Void deleteBucketIfExists(String bucketName) {
-        client.getBlobContainerClient(bucketName).deleteIfExists();
-        return null;
+        try {
+            client.getBlobContainerClient(bucketName).deleteIfExists();
+            return null;
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to delete Azure container if exists: " + bucketName, error);
+        }
     }
 
     @Override
     public byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
         validateRange(startInclusive, endInclusive);
-        BlobRange blobRange = new BlobRange(startInclusive, endInclusive - startInclusive + 1);
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        blobClient(bucketName, blobKey)
-                .downloadStreamWithResponse(output, blobRange, null, null, false, null, null);
-        return output.toByteArray();
+        try {
+            BlobRange blobRange = new BlobRange(startInclusive, endInclusive - startInclusive + 1);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            blobClient(bucketName, blobKey)
+                    .downloadStreamWithResponse(output, blobRange, null, null, false, null, null);
+            return output.toByteArray();
+        } catch (BlobStorageException error) {
+            throw new UbsaException(
+                    "Failed to read byte range from Azure blob " + bucketName + "/" + blobKey,
+                    error
+            );
+        }
     }
 
     @Override
     public String createBlobIfNotExists(String bucketName, Blob blob) {
-        BlobClient blobClient = blobClient(bucketName, blob.getKey());
-        if (blobClient.exists()) {
-            return blobClient.getProperties().getETag();
+        try {
+            BlobClient blobClient = blobClient(bucketName, blob.getKey());
+            if (blobClient.exists()) {
+                return blobClient.getProperties().getETag();
+            }
+            return blobClient.uploadWithResponse(buildUploadOptions(blob), null, null)
+                    .getValue()
+                    .getETag();
+        } catch (BlobStorageException error) {
+            throw new UbsaException(
+                    "Failed to create Azure blob if not exists: " + bucketName + "/" + blob.getKey(),
+                    error
+            );
         }
-        return blobClient.uploadWithResponse(buildUploadOptions(blob), null, null)
-                .getValue()
-                .getETag();
     }
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
-        var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
-        BlobSasPermission permission = new BlobSasPermission().setReadPermission(true);
-        BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
-        String sas = blobClient.generateSas(values);
-        return buildSasUrl(blobClient.getBlobUrl(), sas);
+        try {
+            var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
+            BlobSasPermission permission = new BlobSasPermission().setReadPermission(true);
+            BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
+            String sas = blobClient.generateSas(values);
+            return buildSasUrl(blobClient.getBlobUrl(), sas);
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to generate Azure GET URL for " + bucket + "/" + objectKey, error);
+        }
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
         validateExpiry(expiry);
-        var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
-        BlobSasPermission permission = new BlobSasPermission()
-                .setCreatePermission(true)
-                .setWritePermission(true);
-        BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
-        String sas = blobClient.generateSas(values);
-        return buildSasUrl(blobClient.getBlobUrl(), sas);
+        try {
+            var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
+            BlobSasPermission permission = new BlobSasPermission()
+                    .setCreatePermission(true)
+                    .setWritePermission(true);
+            BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
+            String sas = blobClient.generateSas(values);
+            return buildSasUrl(blobClient.getBlobUrl(), sas);
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to generate Azure PUT URL for " + bucket + "/" + objectKey, error);
+        }
     }
 
     private BlobClient blobClient(String bucketName, String blobKey) {

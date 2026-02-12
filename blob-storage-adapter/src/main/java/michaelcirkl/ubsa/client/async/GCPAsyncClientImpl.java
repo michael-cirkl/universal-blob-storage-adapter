@@ -18,10 +18,12 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.Storage.BucketListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
+import com.google.cloud.storage.StorageException;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
+import michaelcirkl.ubsa.UbsaException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -64,95 +66,126 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {
-        return CompletableFuture.supplyAsync(() -> client.get(bucketName) != null);
+        return wrapStorageException(
+                CompletableFuture.supplyAsync(() -> client.get(bucketName) != null),
+                "Failed to check whether GCP bucket exists: " + bucketName
+        );
     }
 
     @Override
     public CompletableFuture<Blob> getBlob(String bucketName, String blobKey) {
         BlobId blobId = BlobId.of(bucketName, blobKey);
-        return withBlobReadSession(blobId, session -> {
-            BlobInfo blobInfo = session.getBlobInfo();
-            return toCompletableFuture(session.readAs(ReadProjectionConfigs.asFutureBytes()))
-                    .thenApply(content -> Blob.builder()
-                            .bucket(bucketName)
-                            .key(blobKey)
-                            .content(content)
-                            .size(blobInfo.getSize() == null ? 0L : blobInfo.getSize())
-                            .lastModified(toLocalDateTime(blobInfo.getUpdateTime()))
-                            .encoding(blobInfo.getContentEncoding())
-                            .etag(blobInfo.getEtag())
-                            .userMetadata(blobInfo.getMetadata())
-                            .publicURI(toGsUri(bucketName, blobKey))
-                            .build());
-        });
+        return wrapStorageException(
+                withBlobReadSession(blobId, session -> {
+                    BlobInfo blobInfo = session.getBlobInfo();
+                    return toCompletableFuture(session.readAs(ReadProjectionConfigs.asFutureBytes()))
+                            .thenApply(content -> Blob.builder()
+                                    .bucket(bucketName)
+                                    .key(blobKey)
+                                    .content(content)
+                                    .size(blobInfo.getSize() == null ? 0L : blobInfo.getSize())
+                                    .lastModified(toLocalDateTime(blobInfo.getUpdateTime()))
+                                    .encoding(blobInfo.getContentEncoding())
+                                    .etag(blobInfo.getEtag())
+                                    .userMetadata(blobInfo.getMetadata())
+                                    .publicURI(toGsUri(bucketName, blobKey))
+                                    .build());
+                }),
+                "Failed to get GCP blob gs://" + bucketName + "/" + blobKey
+        );
     }
 
     @Override
     public CompletableFuture<Void> deleteBucket(String bucketName) {
-        return CompletableFuture.runAsync(() -> client.delete(bucketName));
+        return wrapStorageException(
+                CompletableFuture.runAsync(() -> client.delete(bucketName)),
+                "Failed to delete GCP bucket: " + bucketName
+        );
     }
 
     @Override
     public CompletableFuture<Boolean> blobExists(String bucketName, String blobKey) {
-        return CompletableFuture.supplyAsync(() -> client.get(bucketName, blobKey) != null);
+        return wrapStorageException(
+                CompletableFuture.supplyAsync(() -> client.get(bucketName, blobKey) != null),
+                "Failed to check whether GCP blob exists: gs://" + bucketName + "/" + blobKey
+        );
     }
 
     @Override
     public CompletableFuture<String> createBlob(String bucketName, Blob blob) {
         BlobInfo blobInfo = buildBlobInfo(bucketName, blob);
         byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
-        return CompletableFuture.supplyAsync(() -> writeBlobAsync(blobInfo, content))
-                .thenCompose(apiFuture -> toCompletableFuture(apiFuture))
-                .thenApply(BlobInfo::getEtag);
+        return wrapStorageException(
+                CompletableFuture.supplyAsync(() -> writeBlobAsync(blobInfo, content))
+                        .thenCompose(apiFuture -> toCompletableFuture(apiFuture))
+                        .thenApply(BlobInfo::getEtag),
+                "Failed to create GCP blob gs://" + bucketName + "/" + blob.getKey()
+        );
     }
 
     @Override
     public CompletableFuture<Void> deleteBlob(String bucketName, String blobKey) {
-        return CompletableFuture.runAsync(() -> client.delete(bucketName, blobKey));
+        return wrapStorageException(
+                CompletableFuture.runAsync(() -> client.delete(bucketName, blobKey)),
+                "Failed to delete GCP blob gs://" + bucketName + "/" + blobKey
+        );
     }
 
     @Override
     public CompletableFuture<String> copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
-        return CompletableFuture.supplyAsync(() -> {
-            CopyRequest request = CopyRequest.newBuilder()
-                    .setSource(BlobId.of(sourceBucketName, sourceBlobKey))
-                    .setTarget(BlobId.of(destinationBucketName, destinationBlobKey))
-                    .build();
-            return client.copy(request).getResult().getEtag();
-        });
+        return wrapStorageException(
+                CompletableFuture.supplyAsync(() -> {
+                    CopyRequest request = CopyRequest.newBuilder()
+                            .setSource(BlobId.of(sourceBucketName, sourceBlobKey))
+                            .setTarget(BlobId.of(destinationBucketName, destinationBlobKey))
+                            .build();
+                    return client.copy(request).getResult().getEtag();
+                }),
+                "Failed to copy GCP blob from gs://" + sourceBucketName + "/" + sourceBlobKey
+                        + " to gs://" + destinationBucketName + "/" + destinationBlobKey
+        );
     }
 
     @Override
     public CompletableFuture<Set<Bucket>> listAllBuckets() {
-        return CompletableFuture.supplyAsync(() -> {
-            Set<Bucket> buckets = new HashSet<>();
-            Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(1000));
-            bucketPage.iterateAll().forEach(gcsBucket -> {
-                LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTime());
-                buckets.add(Bucket.builder()
-                        .name(gcsBucket.getName())
-                        .publicURI(toGsUri(gcsBucket.getName(), null))
-                        .creationDate(created)
-                        .lastModified(created)
-                        .build());
-            });
-            return buckets;
-        });
+        return wrapStorageException(
+                CompletableFuture.supplyAsync(() -> {
+                    Set<Bucket> buckets = new HashSet<>();
+                    Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(1000));
+                    bucketPage.iterateAll().forEach(gcsBucket -> {
+                        LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTime());
+                        buckets.add(Bucket.builder()
+                                .name(gcsBucket.getName())
+                                .publicURI(toGsUri(gcsBucket.getName(), null))
+                                .creationDate(created)
+                                .lastModified(created)
+                                .build());
+                    });
+                    return buckets;
+                }),
+                "Failed to list GCP buckets"
+        );
     }
 
     @Override
     public CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
-        return CompletableFuture.supplyAsync(() -> {
-            Page<com.google.cloud.storage.Blob> blobPage = (prefix != null && !prefix.isBlank())
-                    ? client.list(bucketName, BlobListOption.prefix(prefix))
-                    : client.list(bucketName);
-            return mapBlobsFromPage(bucketName, blobPage);
-        });
+        return wrapStorageException(
+                CompletableFuture.supplyAsync(() -> {
+                    Page<com.google.cloud.storage.Blob> blobPage = (prefix != null && !prefix.isBlank())
+                            ? client.list(bucketName, BlobListOption.prefix(prefix))
+                            : client.list(bucketName);
+                    return mapBlobsFromPage(bucketName, blobPage);
+                }),
+                "Failed to list GCP blobs in bucket " + bucketName
+        );
     }
 
     @Override
     public CompletableFuture<Void> createBucket(Bucket bucket) {
-        return CompletableFuture.runAsync(() -> client.create(BucketInfo.of(bucket.getName())));
+        return wrapStorageException(
+                CompletableFuture.runAsync(() -> client.create(BucketInfo.of(bucket.getName()))),
+                "Failed to create GCP bucket " + bucket.getName()
+        );
     }
 
     @Override
@@ -162,7 +195,10 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Void> deleteBucketIfExists(String bucketName) {
-        return CompletableFuture.runAsync(() -> client.delete(bucketName));
+        return wrapStorageException(
+                CompletableFuture.runAsync(() -> client.delete(bucketName)),
+                "Failed to delete GCP bucket if exists: " + bucketName
+        );
     }
 
     @Override
@@ -170,47 +206,61 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         validateRange(startInclusive, endInclusive);
         long length = endInclusive - startInclusive + 1;
         BlobId blobId = BlobId.of(bucketName, blobKey);
-        return withBlobReadSession(blobId, session -> {
-            ReadAsFutureBytes readConfig = ReadProjectionConfigs.asFutureBytes()
-                    .withRangeSpec(RangeSpec.beginAt(startInclusive).withMaxLength(length));
-            return toCompletableFuture(session.readAs(readConfig));
-        });
+        return wrapStorageException(
+                withBlobReadSession(blobId, session -> {
+                    ReadAsFutureBytes readConfig = ReadProjectionConfigs.asFutureBytes()
+                            .withRangeSpec(RangeSpec.beginAt(startInclusive).withMaxLength(length));
+                    return toCompletableFuture(session.readAs(readConfig));
+                }),
+                "Failed to read byte range from GCP blob gs://" + bucketName + "/" + blobKey
+        );
     }
 
     @Override
     public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
-        return CompletableFuture.supplyAsync(() -> client.get(bucketName, blob.getKey()))
-                .thenCompose(existing -> {
-                    if (existing != null) {
-                        return CompletableFuture.completedFuture(existing.getEtag());
-                    }
-                    return createBlob(bucketName, blob);
-                });
+        return wrapStorageException(
+                CompletableFuture.supplyAsync(() -> client.get(bucketName, blob.getKey()))
+                        .thenCompose(existing -> {
+                            if (existing != null) {
+                                return CompletableFuture.completedFuture(existing.getEtag());
+                            }
+                            return createBlob(bucketName, blob);
+                        }),
+                "Failed to create GCP blob if not exists: gs://" + bucketName + "/" + blob.getKey()
+        );
     }
 
     @Override
     public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {
-        long seconds = toPositiveSeconds(expiry);
-        BlobInfo blobInfo = BlobInfo.newBuilder(bucket, objectKey).build();
-        URL url = client.signUrl(blobInfo, seconds, TimeUnit.SECONDS);
-        return CompletableFuture.completedFuture(url);
+        try {
+            long seconds = toPositiveSeconds(expiry);
+            BlobInfo blobInfo = BlobInfo.newBuilder(bucket, objectKey).build();
+            URL url = client.signUrl(blobInfo, seconds, TimeUnit.SECONDS);
+            return CompletableFuture.completedFuture(url);
+        } catch (StorageException error) {
+            throw new UbsaException("Failed to generate GCP GET URL for gs://" + bucket + "/" + objectKey, error);
+        }
     }
 
     @Override
     public CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        long seconds = toPositiveSeconds(expiry);
-        BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucket, objectKey);
-        if (contentType != null && !contentType.isBlank()) {
-            blobBuilder.setContentType(contentType);
+        try {
+            long seconds = toPositiveSeconds(expiry);
+            BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucket, objectKey);
+            if (contentType != null && !contentType.isBlank()) {
+                blobBuilder.setContentType(contentType);
+            }
+            BlobInfo blobInfo = blobBuilder.build();
+            var options = new ArrayList<Storage.SignUrlOption>();
+            options.add(Storage.SignUrlOption.httpMethod(HttpMethod.PUT));
+            if (contentType != null && !contentType.isBlank()) {
+                options.add(Storage.SignUrlOption.withContentType());
+            }
+            URL url = client.signUrl(blobInfo, seconds, TimeUnit.SECONDS, options.toArray(new Storage.SignUrlOption[0]));
+            return CompletableFuture.completedFuture(url);
+        } catch (StorageException error) {
+            throw new UbsaException("Failed to generate GCP PUT URL for gs://" + bucket + "/" + objectKey, error);
         }
-        BlobInfo blobInfo = blobBuilder.build();
-        var options = new ArrayList<Storage.SignUrlOption>();
-        options.add(Storage.SignUrlOption.httpMethod(HttpMethod.PUT));
-        if (contentType != null && !contentType.isBlank()) {
-            options.add(Storage.SignUrlOption.withContentType());
-        }
-        URL url = client.signUrl(blobInfo, seconds, TimeUnit.SECONDS, options.toArray(new Storage.SignUrlOption[0]));
-        return CompletableFuture.completedFuture(url);
     }
 
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content) {
@@ -319,5 +369,32 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         } catch (IOException ignored) {
             // no-op
         }
+    }
+
+    private static <T> CompletableFuture<T> wrapStorageException(CompletableFuture<T> future, String message) {
+        return future.handle((result, error) -> {
+            if (error == null) {
+                return result;
+            }
+            Throwable cause = unwrapCompletionException(error);
+            throw toCompletionException(message, cause);
+        });
+    }
+
+    private static CompletionException toCompletionException(String message, Throwable cause) {
+        if (cause instanceof UbsaException ubsaException) {
+            return new CompletionException(ubsaException);
+        }
+        if (cause instanceof StorageException storageException) {
+            return new CompletionException(new UbsaException(message, storageException));
+        }
+        return new CompletionException(cause);
+    }
+
+    private static Throwable unwrapCompletionException(Throwable error) {
+        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
+            return completionException.getCause();
+        }
+        return error;
     }
 }

@@ -4,6 +4,7 @@ import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
+import michaelcirkl.ubsa.UbsaException;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -26,6 +27,7 @@ import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -71,32 +73,40 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         try {
             client.headBucket(request);
             return true;
-        } catch (RuntimeException error) {
+        } catch (S3Exception error) {
             if (isNotFound(error)) {
                 return false;
             }
-            throw error;
+            throw new UbsaException("Failed to check whether AWS bucket exists: " + bucketName, error);
         }
     }
 
     @Override
     public Blob getBlob(String bucketName, String blobKey) {
-        GetObjectRequest request = GetObjectRequest.builder()
-                .bucket(bucketName)
-                .key(blobKey)
-                .build();
+        try {
+            GetObjectRequest request = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
 
-        ResponseBytes<GetObjectResponse> responseBytes = client.getObjectAsBytes(request);
-        return buildBlobFromGetObject(bucketName, blobKey, responseBytes);
+            ResponseBytes<GetObjectResponse> responseBytes = client.getObjectAsBytes(request);
+            return buildBlobFromGetObject(bucketName, blobKey, responseBytes);
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to get AWS blob " + blobKey + " from bucket " + bucketName, error);
+        }
     }
 
     @Override
     public Void deleteBucket(String bucketName) {
-        DeleteBucketRequest request = DeleteBucketRequest.builder()
-                .bucket(bucketName)
-                .build();
-        client.deleteBucket(request);
-        return null;
+        try {
+            DeleteBucketRequest request = DeleteBucketRequest.builder()
+                    .bucket(bucketName)
+                    .build();
+            client.deleteBucket(request);
+            return null;
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to delete AWS bucket: " + bucketName, error);
+        }
     }
 
     @Override
@@ -108,90 +118,122 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         try {
             client.headObject(request);
             return true;
-        } catch (RuntimeException error) {
+        } catch (S3Exception error) {
             if (isNotFound(error)) {
                 return false;
             }
-            throw error;
+            throw new UbsaException("Failed to check whether AWS blob exists: s3://" + bucketName + "/" + blobKey, error);
         }
     }
 
     @Override
     public String createBlob(String bucketName, Blob blob) {
-        PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(blob.getKey());
+        try {
+            PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blob.getKey());
 
-        if (blob.encoding() != null) {
-            requestBuilder.contentEncoding(blob.encoding());
-        }
-        Map<String, String> metadata = blob.getUserMetadata();
-        if (metadata != null && !metadata.isEmpty()) {
-            requestBuilder.metadata(metadata);
-        }
-        if (blob.expires() != null) {
-            requestBuilder.expires(blob.expires().toInstant(ZoneOffset.UTC));
-        }
+            if (blob.encoding() != null) {
+                requestBuilder.contentEncoding(blob.encoding());
+            }
+            Map<String, String> metadata = blob.getUserMetadata();
+            if (metadata != null && !metadata.isEmpty()) {
+                requestBuilder.metadata(metadata);
+            }
+            if (blob.expires() != null) {
+                requestBuilder.expires(blob.expires().toInstant(ZoneOffset.UTC));
+            }
 
-        byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
-        PutObjectRequest request = requestBuilder.build();
-        PutObjectResponse response = client.putObject(request, RequestBody.fromBytes(content));
-        return response.eTag();
+            byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
+            PutObjectRequest request = requestBuilder.build();
+            PutObjectResponse response = client.putObject(request, RequestBody.fromBytes(content));
+            return response.eTag();
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to create AWS blob " + blob.getKey() + " in bucket " + bucketName, error);
+        }
     }
 
     @Override
     public Void deleteBlob(String bucketName, String blobKey) {
-        DeleteObjectRequest request = DeleteObjectRequest.builder()
-                .bucket(bucketName)
-                .key(blobKey)
-                .build();
-        client.deleteObject(request);
-        return null;
+        try {
+            DeleteObjectRequest request = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
+            client.deleteObject(request);
+            return null;
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to delete AWS blob s3://" + bucketName + "/" + blobKey, error);
+        }
     }
 
     @Override
     public String copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
-        String copySource = sourceBucketName + "/" + sourceBlobKey;
-        CopyObjectRequest request = CopyObjectRequest.builder()
-                .copySource(copySource)
-                .destinationBucket(destinationBucketName)
-                .destinationKey(destinationBlobKey)
-                .build();
-        CopyObjectResponse response = client.copyObject(request);
-        return response.copyObjectResult() == null ? null : response.copyObjectResult().eTag();
+        try {
+            String copySource = sourceBucketName + "/" + sourceBlobKey;
+            CopyObjectRequest request = CopyObjectRequest.builder()
+                    .copySource(copySource)
+                    .destinationBucket(destinationBucketName)
+                    .destinationKey(destinationBlobKey)
+                    .build();
+            CopyObjectResponse response = client.copyObject(request);
+            return response.copyObjectResult() == null ? null : response.copyObjectResult().eTag();
+        } catch (S3Exception error) {
+            throw new UbsaException(
+                    "Failed to copy AWS blob from s3://" + sourceBucketName + "/" + sourceBlobKey
+                            + " to s3://" + destinationBucketName + "/" + destinationBlobKey,
+                    error
+            );
+        }
     }
 
     @Override
     public Set<Bucket> listAllBuckets() {
-        return mapBuckets(client.listBuckets());
+        try {
+            return mapBuckets(client.listBuckets());
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to list AWS buckets", error);
+        }
     }
 
     @Override
     public Set<Blob> listBlobsByPrefix(String bucketName, String prefix) {
-        ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
-                .bucket(bucketName);
-        if (prefix != null && !prefix.isBlank()) {
-            requestBuilder.prefix(prefix);
+        try {
+            ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
+                    .bucket(bucketName);
+            if (prefix != null && !prefix.isBlank()) {
+                requestBuilder.prefix(prefix);
+            }
+            ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
+            return mapBlobsFromList(bucketName, response);
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to list AWS blobs in bucket " + bucketName, error);
         }
-        ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
-        return mapBlobsFromList(bucketName, response);
     }
 
     @Override
     public Void createBucket(Bucket bucket) {
-        CreateBucketRequest request = CreateBucketRequest.builder()
-                .bucket(bucket.getName())
-                .build();
-        client.createBucket(request);
-        return null;
+        try {
+            CreateBucketRequest request = CreateBucketRequest.builder()
+                    .bucket(bucket.getName())
+                    .build();
+            client.createBucket(request);
+            return null;
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to create AWS bucket " + bucket.getName(), error);
+        }
     }
 
     @Override
     public Set<Blob> getAllBlobsInBucket(String bucketName) {
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
-                .bucket(bucketName)
-                .build();
-        return mapBlobsFromList(bucketName, client.listObjectsV2(request));
+        try {
+            ListObjectsV2Request request = ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .build();
+            return mapBlobsFromList(bucketName, client.listObjectsV2(request));
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to list all AWS blobs in bucket " + bucketName, error);
+        }
     }
 
     @Override
@@ -201,9 +243,9 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                 .build();
         try {
             client.deleteBucket(request);
-        } catch (RuntimeException error) {
+        } catch (S3Exception error) {
             if (!isNotFound(error)) {
-                throw error;
+                throw new UbsaException("Failed to delete AWS bucket if exists: " + bucketName, error);
             }
         }
         return null;
@@ -211,13 +253,20 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
-        String range = "bytes=" + startInclusive + "-" + endInclusive;
-        GetObjectRequest request = GetObjectRequest.builder()
-                .bucket(bucketName)
-                .key(blobKey)
-                .range(range)
-                .build();
-        return client.getObjectAsBytes(request).asByteArray();
+        try {
+            String range = "bytes=" + startInclusive + "-" + endInclusive;
+            GetObjectRequest request = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .range(range)
+                    .build();
+            return client.getObjectAsBytes(request).asByteArray();
+        } catch (S3Exception error) {
+            throw new UbsaException(
+                    "Failed to read byte range from AWS blob s3://" + bucketName + "/" + blobKey,
+                    error
+            );
+        }
     }
 
     @Override
@@ -228,11 +277,14 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                 .build();
         try {
             return client.headObject(headRequest).eTag();
-        } catch (RuntimeException error) {
+        } catch (S3Exception error) {
             if (isNotFound(error)) {
                 return createBlob(bucketName, blob);
             }
-            throw error;
+            throw new UbsaException(
+                    "Failed to create AWS blob if not exists: s3://" + bucketName + "/" + blob.getKey(),
+                    error
+            );
         }
     }
 
@@ -250,6 +302,8 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         try (S3Presigner presigner = createPresignerFromClientConfig()) {
             PresignedGetObjectRequest presigned = presigner.presignGetObject(presignRequest);
             return presigned.url();
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to generate AWS GET URL for s3://" + bucket + "/" + objectKey, error);
         }
     }
 
@@ -269,6 +323,8 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         try (S3Presigner presigner = createPresignerFromClientConfig()) {
             PresignedPutObjectRequest presigned = presigner.presignPutObject(presignRequest);
             return presigned.url();
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to generate AWS PUT URL for s3://" + bucket + "/" + objectKey, error);
         }
     }
 
@@ -332,7 +388,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         if (error instanceof NoSuchBucketException || error instanceof NoSuchKeyException) {
             return true;
         }
-        return error instanceof software.amazon.awssdk.services.s3.model.S3Exception s3Exception
+        return error instanceof S3Exception s3Exception
                 && s3Exception.statusCode() == 404;
     }
 
