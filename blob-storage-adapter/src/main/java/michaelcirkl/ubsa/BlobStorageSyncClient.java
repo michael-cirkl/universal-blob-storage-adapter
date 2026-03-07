@@ -2,8 +2,8 @@ package michaelcirkl.ubsa;
 
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 
-import java.net.URL;
 import java.io.InputStream;
+import java.net.URL;
 import java.time.Duration;
 import java.util.Set;
 

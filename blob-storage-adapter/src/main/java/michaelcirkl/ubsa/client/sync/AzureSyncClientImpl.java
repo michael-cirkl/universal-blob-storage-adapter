@@ -5,30 +5,20 @@ import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.models.BlobHttpHeaders;
-import com.azure.storage.blob.models.BlobItem;
-import com.azure.storage.blob.models.BlobItemProperties;
-import com.azure.storage.blob.models.BlobStorageException;
-import com.azure.storage.blob.models.BlobProperties;
-import com.azure.storage.blob.models.BlobRange;
-import com.azure.storage.blob.models.ListBlobsOptions;
+import com.azure.storage.blob.models.*;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
-import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageSyncClient;
+import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
-import michaelcirkl.ubsa.Bucket;
-import michaelcirkl.ubsa.Provider;
-import michaelcirkl.ubsa.UbsaException;
 
-import java.net.URI;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -148,7 +138,10 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
             BlobClient blobClient = blobClient(bucketName, blobKey);
             BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
             Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
-            blobClient.uploadWithResponse(content, contentLength, null, headers, metadata, null, null, null, Context.NONE);
+            BlobParallelUploadOptions uploadOptions = new BlobParallelUploadOptions(BinaryData.fromStream(content, contentLength))
+                    .setHeaders(headers)
+                    .setMetadata(metadata);
+            blobClient.uploadWithResponse(uploadOptions, null, Context.NONE);
             return blobClient.getProperties().getETag();
         } catch (BlobStorageException error) {
             throw new UbsaException(
@@ -314,7 +307,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         return client.getBlobContainerClient(bucketName).getBlobClient(blobKey);
     }
 
-    private static Set<Blob> mapBlobsFromList(String bucketName, BlobContainerClient containerClient, Iterable<BlobItem> blobItems) {
+    private Set<Blob> mapBlobsFromList(String bucketName, BlobContainerClient containerClient, Iterable<BlobItem> blobItems) {
         Set<Blob> blobs = new HashSet<>();
         blobItems.forEach(item -> {
             BlobItemProperties properties = item.getProperties();
@@ -336,7 +329,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         return blobs;
     }
 
-    private static LocalDateTime toLocalDateTime(OffsetDateTime time) {
+    private LocalDateTime toLocalDateTime(OffsetDateTime time) {
         return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
@@ -344,21 +337,21 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         return URI.create(uriValue);
     }
 
-    private static URL buildSasUrl(String baseUrl, String sasToken) {
+    private URL buildSasUrl(String baseUrl, String sasToken) {
         try {
-            return new URL(baseUrl + "?" + sasToken);
-        } catch (MalformedURLException e) {
+            return URI.create(baseUrl + "?" + sasToken).toURL();
+        } catch (IllegalArgumentException | MalformedURLException e) {
             throw new IllegalStateException("Failed to build SAS URL for Azure Blob Storage.", e);
         }
     }
 
-    private static void validateExpiry(Duration expiry) {
+    private void validateExpiry(Duration expiry) {
         if (expiry == null || expiry.isZero() || expiry.isNegative()) {
             throw new IllegalArgumentException("Expiry must be a positive duration.");
         }
     }
 
-    private static void validateRange(long startInclusive, long endInclusive) {
+    private void validateRange(long startInclusive, long endInclusive) {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }

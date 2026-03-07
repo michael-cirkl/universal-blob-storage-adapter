@@ -2,7 +2,6 @@ package michaelcirkl.ubsa.client.streaming;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
@@ -14,8 +13,6 @@ public final class GcpFlowPublisherChannelWriter {
     }
 
     public static void writeFromPublisher(Flow.Publisher<ByteBuffer> publisher, WritableByteChannel channel, long contentLength) {
-        Objects.requireNonNull(publisher, "publisher must not be null");
-        Objects.requireNonNull(channel, "channel must not be null");
         ContentLengthValidators.validateContentLength(contentLength);
 
         CountDownLatch done = new CountDownLatch(1);

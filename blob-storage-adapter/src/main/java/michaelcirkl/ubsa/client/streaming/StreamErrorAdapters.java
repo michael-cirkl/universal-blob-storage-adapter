@@ -2,7 +2,6 @@ package michaelcirkl.ubsa.client.streaming;
 
 import michaelcirkl.ubsa.UbsaException;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -22,9 +21,6 @@ public final class StreamErrorAdapters {
             String message,
             Class<E> nativeExceptionType
     ) {
-        Objects.requireNonNull(future, "future must not be null");
-        Objects.requireNonNull(message, "message must not be null");
-        Objects.requireNonNull(nativeExceptionType, "nativeExceptionType must not be null");
         return future.handle((result, error) -> {
             if (error == null) {
                 return result;

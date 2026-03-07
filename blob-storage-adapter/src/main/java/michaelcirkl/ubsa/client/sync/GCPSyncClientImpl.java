@@ -3,40 +3,32 @@ package michaelcirkl.ubsa.client.sync;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.WriteChannel;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.BucketInfo;
-import com.google.cloud.storage.CopyWriter;
-import com.google.cloud.storage.HttpMethod;
-import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.*;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.Storage.BucketListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageSyncClient;
+import michaelcirkl.ubsa.Bucket;
+import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
-import michaelcirkl.ubsa.Bucket;
-import michaelcirkl.ubsa.Provider;
-import michaelcirkl.ubsa.UbsaException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
-import java.nio.channels.Channels;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import com.google.cloud.storage.StorageException;
 
 public class GCPSyncClientImpl implements BlobStorageSyncClient {
     private final Storage client;
@@ -76,7 +68,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                     .key(blobKey)
                     .content(gcsBlob.getContent())
                     .size(gcsBlob.getSize())
-                    .lastModified(toLocalDateTime(gcsBlob.getUpdateTime()))
+                    .lastModified(toLocalDateTime(gcsBlob.getUpdateTimeOffsetDateTime()))
                     .encoding(gcsBlob.getContentEncoding())
                     .etag(gcsBlob.getEtag())
                     .userMetadata(gcsBlob.getMetadata())
@@ -202,7 +194,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             Set<Bucket> buckets = new HashSet<>();
             Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(1000));
             bucketPage.iterateAll().forEach(gcsBucket -> {
-                LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTime());
+                LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
                 buckets.add(Bucket.builder()
                         .name(gcsBucket.getName())
                         .publicURI(toGsUri(gcsBucket.getName(), null))
@@ -332,31 +324,28 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         }
     }
 
-    private static long toPositiveSeconds(Duration expiry) {
+    private long toPositiveSeconds(Duration expiry) {
         if (expiry == null || expiry.isZero() || expiry.isNegative()) {
             throw new IllegalArgumentException("Expiry must be a positive duration.");
         }
         return expiry.toSeconds();
     }
 
-    private static void validateRange(long startInclusive, long endInclusive) {
+    private void validateRange(long startInclusive, long endInclusive) {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
     }
 
-    private static URI toGsUri(String bucketName, String objectKey) {
+    private URI toGsUri(String bucketName, String objectKey) {
         String uri = (objectKey == null || objectKey.isBlank())
                 ? "gs://" + bucketName
                 : "gs://" + bucketName + "/" + objectKey;
         return URI.create(uri);
     }
 
-    private static LocalDateTime toLocalDateTime(Long epochMilli) {
-        if (epochMilli == null) {
-            return null;
-        }
-        return Instant.ofEpochMilli(epochMilli).atOffset(ZoneOffset.UTC).toLocalDateTime();
+    private LocalDateTime toLocalDateTime(OffsetDateTime time) {
+        return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
     private Set<Blob> mapBlobsFromPage(String bucketName, Page<com.google.cloud.storage.Blob> blobPage) {
@@ -365,7 +354,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                 .bucket(bucketName)
                 .key(gcsBlob.getName())
                 .size(gcsBlob.getSize())
-                .lastModified(toLocalDateTime(gcsBlob.getUpdateTime()))
+                .lastModified(toLocalDateTime(gcsBlob.getUpdateTimeOffsetDateTime()))
                 .encoding(gcsBlob.getContentEncoding())
                 .etag(gcsBlob.getEtag())
                 .userMetadata(gcsBlob.getMetadata())

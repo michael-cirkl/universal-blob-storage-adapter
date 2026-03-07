@@ -1,50 +1,28 @@
 package michaelcirkl.ubsa.client.sync;
 
-import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageSyncClient;
+import michaelcirkl.ubsa.Bucket;
+import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
-import michaelcirkl.ubsa.Bucket;
-import michaelcirkl.ubsa.Provider;
-import michaelcirkl.ubsa.UbsaException;
 import software.amazon.awssdk.core.ResponseBytes;
-import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.S3ServiceClientConfiguration;
-import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
-import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
-import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
-import software.amazon.awssdk.services.s3.model.GetUrlRequest;
-import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
-import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectResponse;
-import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
-import java.io.InputStream;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -107,8 +85,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                     .bucket(bucketName)
                     .key(blobKey)
                     .build();
-            ResponseInputStream<GetObjectResponse> stream = client.getObject(request);
-            return stream;
+            return client.getObject(request);
         } catch (S3Exception error) {
             throw new UbsaException("Failed to open AWS blob stream s3://" + bucketName + "/" + blobKey, error);
         }
@@ -197,9 +174,9 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     @Override
     public String copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
         try {
-            String copySource = sourceBucketName + "/" + sourceBlobKey;
             CopyObjectRequest request = CopyObjectRequest.builder()
-                    .copySource(copySource)
+                    .sourceBucket(sourceBucketName)
+                    .sourceKey(sourceBlobKey)
                     .destinationBucket(destinationBucketName)
                     .destinationKey(destinationBlobKey)
                     .build();
@@ -208,8 +185,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         } catch (S3Exception error) {
             throw new UbsaException(
                     "Failed to copy AWS blob from s3://" + sourceBucketName + "/" + sourceBlobKey
-                            + " to s3://" + destinationBucketName + "/" + destinationBlobKey,
-                    error
+                            + " to s3://" + destinationBucketName + "/" + destinationBlobKey, error
             );
         }
     }
@@ -396,22 +372,22 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                 .etag(response.eTag())
                 .userMetadata(response.metadata())
                 .publicURI(toS3Uri(bucketName, blobKey))
-                .expires(toLocalDateTime(response.expires()))
+                .expires(parseExpiresHeader(response.expiresString()))
                 .build();
     }
 
-    private static LocalDateTime toLocalDateTime(Instant instant) {
+    private LocalDateTime toLocalDateTime(Instant instant) {
         return instant == null ? null : LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 
-    private static URI toS3Uri(String bucketName, String key) {
+    private URI toS3Uri(String bucketName, String key) {
         String uri = (key == null || key.isBlank())
                 ? "s3://" + bucketName
                 : "s3://" + bucketName + "/" + key;
         return URI.create(uri);
     }
 
-    private static boolean isNotFound(Throwable error) {
+    private boolean isNotFound(Throwable error) {
         if (error instanceof NoSuchBucketException || error instanceof NoSuchKeyException) {
             return true;
         }
@@ -419,14 +395,26 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                 && s3Exception.statusCode() == 404;
     }
 
-    private static void validateExpiry(Duration expiry) {
+    private LocalDateTime parseExpiresHeader(String expiresHeader) {
+        if (expiresHeader == null || expiresHeader.isBlank()) {
+            return null;
+        }
+        try {
+            ZonedDateTime expires = ZonedDateTime.parse(expiresHeader, DateTimeFormatter.RFC_1123_DATE_TIME);
+            return expires.withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
+    private void validateExpiry(Duration expiry) {
         if (expiry == null || expiry.isZero() || expiry.isNegative()) {
             throw new IllegalArgumentException("Expiry must be a positive duration.");
         }
     }
 
-    private static void validateAwsSinglePutLength(long contentLength) {
-        // Single PUT object max size is 5 GiB.
+    private void validateAwsSinglePutLength(long contentLength) {
+        // PUT object max size is 5 GiB
         long maxSinglePutBytes = 5L * 1024L * 1024L * 1024L;
         if (contentLength > maxSinglePutBytes) {
             throw new IllegalArgumentException("AWS single PUT upload supports up to 5 GiB. Received: " + contentLength + " bytes.");

@@ -5,7 +5,6 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 
 import java.nio.ByteBuffer;
-import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
@@ -16,14 +15,13 @@ public final class GcpReadChannelFlowPublisher implements Flow.Publisher<ByteBuf
     private final Executor executor;
 
     public GcpReadChannelFlowPublisher(Storage storage, BlobId blobId, Executor executor) {
-        this.storage = Objects.requireNonNull(storage, "storage must not be null");
-        this.blobId = Objects.requireNonNull(blobId, "blobId must not be null");
-        this.executor = Objects.requireNonNull(executor, "executor must not be null");
+        this.storage = storage;
+        this.blobId = blobId;
+        this.executor = executor;
     }
 
     @Override
     public void subscribe(Flow.Subscriber<? super ByteBuffer> subscriber) {
-        Objects.requireNonNull(subscriber, "subscriber must not be null");
         subscriber.onSubscribe(new Flow.Subscription() {
             private final Object demandLock = new Object();
             private boolean started;

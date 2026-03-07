@@ -4,9 +4,9 @@ import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.specialized.BlobInputStream;
-import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlobProperties;
+import com.azure.storage.blob.options.BlobParallelUploadOptions;
+import com.azure.storage.blob.specialized.BlobInputStream;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.sync.AzureSyncClientImpl;
 import org.junit.jupiter.api.Test;
@@ -16,15 +16,10 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class AzureSyncStreamingTest {
     @Test
@@ -70,13 +65,14 @@ class AzureSyncStreamingTest {
         String etag = adapter.createBlob("bucket", "blob", new ByteArrayInputStream(data), data.length, options);
         assertEquals("etag-azure-sync", etag);
 
-        ArgumentCaptor<BlobHttpHeaders> headersCaptor = ArgumentCaptor.forClass(BlobHttpHeaders.class);
-        ArgumentCaptor<Map<String, String>> metadataCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(blobClient).uploadWithResponse(any(InputStream.class), eq((long) data.length), eq(null),
-                headersCaptor.capture(), metadataCaptor.capture(), eq(null), eq(null), eq(null), eq(Context.NONE));
-        assertNotNull(headersCaptor.getValue());
-        assertEquals("gzip", headersCaptor.getValue().getContentEncoding());
-        assertEquals("v", metadataCaptor.getValue().get("k"));
+        ArgumentCaptor<BlobParallelUploadOptions> uploadOptionsCaptor = ArgumentCaptor.forClass(BlobParallelUploadOptions.class);
+        verify(blobClient).uploadWithResponse(uploadOptionsCaptor.capture(), eq(null), eq(Context.NONE));
+        BlobParallelUploadOptions uploadOptions = uploadOptionsCaptor.getValue();
+        assertNotNull(uploadOptions);
+        assertNotNull(uploadOptions.getHeaders());
+        assertEquals("gzip", uploadOptions.getHeaders().getContentEncoding());
+        assertNotNull(uploadOptions.getMetadata());
+        assertEquals("v", uploadOptions.getMetadata().get("k"));
         verify(blobClient, never()).setHttpHeaders(any());
         verify(blobClient, never()).setMetadata(any());
     }

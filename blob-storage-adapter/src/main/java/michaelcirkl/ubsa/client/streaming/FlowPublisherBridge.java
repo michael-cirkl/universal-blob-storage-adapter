@@ -3,7 +3,7 @@ package michaelcirkl.ubsa.client.streaming;
 import java.util.Objects;
 import java.util.concurrent.Flow;
 
-public class FlowPublisherBridge {
+public final class FlowPublisherBridge {
     private FlowPublisherBridge() {
     }
 

@@ -1,13 +1,11 @@
 package michaelcirkl.ubsa.testclients;
 
 import com.azure.core.util.BinaryData;
-import com.azure.storage.blob.*;
+import com.azure.storage.blob.BlobAsyncClient;
+import com.azure.storage.blob.BlobContainerAsyncClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.common.StorageSharedKeyCredential;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 
 public class AzureTest implements BlobStoreTest {
     @Override

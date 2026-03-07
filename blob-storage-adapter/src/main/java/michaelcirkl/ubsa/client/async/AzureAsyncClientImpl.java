@@ -4,25 +4,16 @@ import com.azure.core.util.BinaryData;
 import com.azure.storage.blob.BlobAsyncClient;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
-import com.azure.storage.blob.models.BlobHttpHeaders;
-import com.azure.storage.blob.models.BlobItem;
-import com.azure.storage.blob.models.BlobItemProperties;
-import com.azure.storage.blob.models.BlobStorageException;
-import com.azure.storage.blob.models.BlobProperties;
-import com.azure.storage.blob.models.BlobRange;
-import com.azure.storage.blob.models.ListBlobsOptions;
+import com.azure.storage.blob.models.*;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
-import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageAsyncClient;
-import michaelcirkl.ubsa.Bucket;
-import michaelcirkl.ubsa.Provider;
-import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.streaming.*;
+import reactor.core.publisher.Flux;
 
-import java.net.URI;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -34,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
-import reactor.core.publisher.Flux;
 
 public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     private final BlobServiceAsyncClient client;
@@ -140,11 +130,9 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         Flux<ByteBuffer> flux = Flux.from(FlowPublisherBridge.toReactivePublisher(content));
         BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
         Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
-        BlobHttpHeaders finalHeaders = headers;
-        Map<String, String> finalMetadata = metadata;
         return wrapBlobStorageException(
                 blobClient.getBlockBlobAsyncClient()
-                        .uploadWithResponse(flux, contentLength, finalHeaders, finalMetadata, null, null, null)
+                        .uploadWithResponse(flux, contentLength, headers, metadata, null, null, null)
                         .map(response -> response.getValue().getETag())
                         .toFuture(),
                 "Failed to stream-create Azure blob " + bucketName + "/" + blobKey
@@ -310,7 +298,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         return client.getBlobContainerAsyncClient(bucketName).getBlobAsyncClient(blobKey);
     }
 
-    private static Set<Blob> mapBlobsFromList(String bucketName, BlobContainerAsyncClient containerClient, java.util.List<BlobItem> blobItems) {
+    private Set<Blob> mapBlobsFromList(String bucketName, BlobContainerAsyncClient containerClient, java.util.List<BlobItem> blobItems) {
         Set<Blob> blobs = new HashSet<>();
         blobItems.forEach(item -> {
             BlobItemProperties properties = item.getProperties();
@@ -332,35 +320,35 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         return blobs;
     }
 
-    private static LocalDateTime toLocalDateTime(OffsetDateTime time) {
+    private LocalDateTime toLocalDateTime(OffsetDateTime time) {
         return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
-    private static URI toUri(String uriValue) {
+    private URI toUri(String uriValue) {
         return URI.create(uriValue);
     }
 
-    private static URL buildSasUrl(String baseUrl, String sasToken) {
+    private URL buildSasUrl(String baseUrl, String sasToken) {
         try {
-            return new URL(baseUrl + "?" + sasToken);
-        } catch (MalformedURLException e) {
+            return URI.create(baseUrl + "?" + sasToken).toURL();
+        } catch (IllegalArgumentException | MalformedURLException e) {
             throw new IllegalStateException("Failed to build SAS URL for Azure Blob Storage.", e);
         }
     }
 
-    private static void validateExpiry(Duration expiry) {
+    private void validateExpiry(Duration expiry) {
         if (expiry == null || expiry.isZero() || expiry.isNegative()) {
             throw new IllegalArgumentException("Expiry must be a positive duration.");
         }
     }
 
-    private static void validateRange(long startInclusive, long endInclusive) {
+    private void validateRange(long startInclusive, long endInclusive) {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
     }
 
-    private static <T> CompletableFuture<T> wrapBlobStorageException(CompletableFuture<T> future, String message) {
+    private <T> CompletableFuture<T> wrapBlobStorageException(CompletableFuture<T> future, String message) {
         return StreamErrorAdapters.wrapUbsaFuture(future, message, BlobStorageException.class);
     }
 }

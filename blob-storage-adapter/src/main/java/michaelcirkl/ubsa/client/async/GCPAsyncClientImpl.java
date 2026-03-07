@@ -5,25 +5,13 @@ import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.api.gax.paging.Page;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.BlobReadSession;
-import com.google.cloud.storage.BlobWriteSession;
-import com.google.cloud.storage.BucketInfo;
-import com.google.cloud.storage.HttpMethod;
-import com.google.cloud.storage.RangeSpec;
-import com.google.cloud.storage.ReadAsFutureBytes;
-import com.google.cloud.storage.ReadProjectionConfigs;
-import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.*;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.Storage.BucketListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
-import com.google.cloud.storage.StorageException;
 import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
-import michaelcirkl.ubsa.Provider;
-import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.streaming.*;
 
 import java.io.IOException;
@@ -32,18 +20,13 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.Flow;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Function;
 
 public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
@@ -92,7 +75,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                                     .key(blobKey)
                                     .content(content)
                                     .size(blobInfo.getSize() == null ? 0L : blobInfo.getSize())
-                                    .lastModified(toLocalDateTime(blobInfo.getUpdateTime()))
+                                    .lastModified(toLocalDateTime(blobInfo.getUpdateTimeOffsetDateTime()))
                                     .encoding(blobInfo.getContentEncoding())
                                     .etag(blobInfo.getEtag())
                                     .userMetadata(blobInfo.getMetadata())
@@ -133,7 +116,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
         return wrapStorageException(
                 CompletableFuture.supplyAsync(() -> writeBlobAsync(blobInfo, content), IO_EXECUTOR)
-                        .thenCompose(apiFuture -> toCompletableFuture(apiFuture))
+                        .thenCompose(this::toCompletableFuture)
                         .thenApply(BlobInfo::getEtag),
                 "Failed to create GCP blob gs://" + bucketName + "/" + blob.getKey()
         );
@@ -148,7 +131,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         BlobInfo blobInfo = buildBlobInfo(bucketName, blobKey, options);
         return wrapStorageException(
                 CompletableFuture.supplyAsync(() -> writeBlobAsync(blobInfo, content, contentLength), IO_EXECUTOR)
-                        .thenCompose(GCPAsyncClientImpl::toCompletableFuture)
+                        .thenCompose(this::toCompletableFuture)
                         .thenApply(BlobInfo::getEtag),
                 "Failed to stream-create GCP blob gs://" + bucketName + "/" + blobKey
         );
@@ -184,7 +167,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                     Set<Bucket> buckets = new HashSet<>();
                     Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(1000));
                     bucketPage.iterateAll().forEach(gcsBucket -> {
-                        LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTime());
+                        LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
                         buckets.add(Bucket.builder()
                                 .name(gcsBucket.getName())
                                 .publicURI(toGsUri(gcsBucket.getName(), null))
@@ -269,7 +252,9 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
             URL url = client.signUrl(blobInfo, seconds, TimeUnit.SECONDS);
             return CompletableFuture.completedFuture(url);
         } catch (StorageException error) {
-            throw new UbsaException("Failed to generate GCP GET URL for gs://" + bucket + "/" + objectKey, error);
+            return CompletableFuture.failedFuture(
+                    new UbsaException("Failed to generate GCP GET URL for gs://" + bucket + "/" + objectKey, error)
+            );
         }
     }
 
@@ -290,7 +275,9 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
             URL url = client.signUrl(blobInfo, seconds, TimeUnit.SECONDS, options.toArray(new Storage.SignUrlOption[0]));
             return CompletableFuture.completedFuture(url);
         } catch (StorageException error) {
-            throw new UbsaException("Failed to generate GCP PUT URL for gs://" + bucket + "/" + objectKey, error);
+            return CompletableFuture.failedFuture(
+                    new UbsaException("Failed to generate GCP PUT URL for gs://" + bucket + "/" + objectKey, error)
+            );
         }
     }
 
@@ -302,7 +289,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                 channel.write(buffer);
             }
         } catch (IOException e) {
-            throw new CompletionException("Failed to write blob content to GCS.", e);
+            throw new UbsaException("Failed to write blob content to GCS.", new RuntimeException(e));
         }
         return writeSession.getResult();
     }
@@ -312,7 +299,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         try (WritableByteChannel channel = writeSession.open()) {
             GcpFlowPublisherChannelWriter.writeFromPublisher(content, channel, contentLength);
         } catch (IOException e) {
-            throw new CompletionException("Failed to write streamed blob content to GCS.", e);
+            throw new UbsaException("Failed to write streamed blob content to GCS.", new RuntimeException(e));
         }
         return writeSession.getResult();
     }
@@ -334,7 +321,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                 });
     }
 
-    private static <T> CompletableFuture<T> toCompletableFuture(ApiFuture<T> apiFuture) {
+    private <T> CompletableFuture<T> toCompletableFuture(ApiFuture<T> apiFuture) {
         CompletableFuture<T> future = new CompletableFuture<>();
         ApiFutures.addCallback(apiFuture, new ApiFutureCallback<>() {
             @Override
@@ -350,25 +337,25 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         return future;
     }
 
-    private static BlobInfo buildBlobInfo(String bucketName, Blob blob) {
+    private BlobInfo buildBlobInfo(String bucketName, Blob blob) {
         BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blob.getKey());
         WriteOptionsMappers.applyBlobToGcpBlobInfo(blobBuilder, blob);
         return blobBuilder.build();
     }
 
-    private static BlobInfo buildBlobInfo(String bucketName, String blobKey, BlobWriteOptions options) {
+    private BlobInfo buildBlobInfo(String bucketName, String blobKey, BlobWriteOptions options) {
         BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blobKey);
         WriteOptionsMappers.applyOptionsToGcpBlobInfo(blobBuilder, options);
         return blobBuilder.build();
     }
 
-    private static Set<Blob> mapBlobsFromPage(String bucketName, Page<com.google.cloud.storage.Blob> blobPage) {
+    private Set<Blob> mapBlobsFromPage(String bucketName, Page<com.google.cloud.storage.Blob> blobPage) {
         Set<Blob> blobs = new HashSet<>();
         blobPage.iterateAll().forEach(gcsBlob -> blobs.add(Blob.builder()
                 .bucket(bucketName)
                 .key(gcsBlob.getName())
                 .size(gcsBlob.getSize())
-                .lastModified(toLocalDateTime(gcsBlob.getUpdateTime()))
+                .lastModified(toLocalDateTime(gcsBlob.getUpdateTimeOffsetDateTime()))
                 .encoding(gcsBlob.getContentEncoding())
                 .etag(gcsBlob.getEtag())
                 .userMetadata(gcsBlob.getMetadata())
@@ -377,42 +364,39 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         return blobs;
     }
 
-    private static LocalDateTime toLocalDateTime(Long epochMilli) {
-        if (epochMilli == null) {
-            return null;
-        }
-        return Instant.ofEpochMilli(epochMilli).atOffset(ZoneOffset.UTC).toLocalDateTime();
+    private LocalDateTime toLocalDateTime(OffsetDateTime time) {
+        return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
-    private static URI toGsUri(String bucketName, String objectKey) {
+    private URI toGsUri(String bucketName, String objectKey) {
         String uri = (objectKey == null || objectKey.isBlank())
                 ? "gs://" + bucketName
                 : "gs://" + bucketName + "/" + objectKey;
         return URI.create(uri);
     }
 
-    private static long toPositiveSeconds(Duration expiry) {
+    private long toPositiveSeconds(Duration expiry) {
         if (expiry == null || expiry.isZero() || expiry.isNegative()) {
             throw new IllegalArgumentException("Expiry must be a positive duration.");
         }
         return expiry.toSeconds();
     }
 
-    private static void validateRange(long startInclusive, long endInclusive) {
+    private void validateRange(long startInclusive, long endInclusive) {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
     }
 
-    private static void closeQuietly(BlobReadSession session) {
+    private void closeQuietly(BlobReadSession session) {
         try {
             session.close();
         } catch (IOException ignored) {
-            // no-op
+
         }
     }
 
-    private static <T> CompletableFuture<T> wrapStorageException(CompletableFuture<T> future, String message) {
+    private <T> CompletableFuture<T> wrapStorageException(CompletableFuture<T> future, String message) {
         return StreamErrorAdapters.wrapUbsaFuture(future, message, StorageException.class);
     }
 }
