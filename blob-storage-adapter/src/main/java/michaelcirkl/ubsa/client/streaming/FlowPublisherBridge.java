@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa.client.async;
+package michaelcirkl.ubsa.client.streaming;
 
 import java.util.Objects;
 import java.util.concurrent.Flow;
@@ -7,14 +7,20 @@ public class FlowPublisherBridge {
     private FlowPublisherBridge() {
     }
 
-    static <T> Flow.Publisher<T> toFlowPublisher(org.reactivestreams.Publisher<T> publisher) {
+    public static <T> Flow.Publisher<T> toFlowPublisher(org.reactivestreams.Publisher<T> publisher) {
         Objects.requireNonNull(publisher, "publisher must not be null");
-        return flowSubscriber -> publisher.subscribe(new ReactiveToFlowSubscriber<>(flowSubscriber));
+        return flowSubscriber -> {
+            Objects.requireNonNull(flowSubscriber, "subscriber must not be null");
+            publisher.subscribe(new ReactiveToFlowSubscriber<>(flowSubscriber));
+        };
     }
 
-    static <T> org.reactivestreams.Publisher<T> toReactivePublisher(Flow.Publisher<T> publisher) {
+    public static <T> org.reactivestreams.Publisher<T> toReactivePublisher(Flow.Publisher<T> publisher) {
         Objects.requireNonNull(publisher, "publisher must not be null");
-        return reactiveSubscriber -> publisher.subscribe(new FlowToReactiveSubscriber<>(reactiveSubscriber));
+        return reactiveSubscriber -> {
+            Objects.requireNonNull(reactiveSubscriber, "subscriber must not be null");
+            publisher.subscribe(new FlowToReactiveSubscriber<>(reactiveSubscriber));
+        };
     }
 
     private static final class ReactiveToFlowSubscriber<T> implements org.reactivestreams.Subscriber<T> {
@@ -26,14 +32,30 @@ public class FlowPublisherBridge {
 
         @Override
         public void onSubscribe(org.reactivestreams.Subscription subscription) {
+            if (subscription == null) {
+                downstream.onError(new NullPointerException("subscription must not be null"));
+                return;
+            }
             downstream.onSubscribe(new Flow.Subscription() {
+                private volatile boolean terminated;
+
                 @Override
                 public void request(long n) {
+                    if (terminated) {
+                        return;
+                    }
+                    if (n <= 0) {
+                        terminated = true;
+                        subscription.cancel();
+                        downstream.onError(new IllegalArgumentException("Demand must be > 0."));
+                        return;
+                    }
                     subscription.request(n);
                 }
 
                 @Override
                 public void cancel() {
+                    terminated = true;
                     subscription.cancel();
                 }
             });
@@ -64,14 +86,30 @@ public class FlowPublisherBridge {
 
         @Override
         public void onSubscribe(Flow.Subscription subscription) {
+            if (subscription == null) {
+                downstream.onError(new NullPointerException("subscription must not be null"));
+                return;
+            }
             downstream.onSubscribe(new org.reactivestreams.Subscription() {
+                private volatile boolean terminated;
+
                 @Override
                 public void request(long n) {
+                    if (terminated) {
+                        return;
+                    }
+                    if (n <= 0) {
+                        terminated = true;
+                        subscription.cancel();
+                        downstream.onError(new IllegalArgumentException("Demand must be > 0."));
+                        return;
+                    }
                     subscription.request(n);
                 }
 
                 @Override
                 public void cancel() {
+                    terminated = true;
                     subscription.cancel();
                 }
             });

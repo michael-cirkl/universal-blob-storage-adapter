@@ -14,7 +14,9 @@ import com.google.cloud.storage.Storage.BucketListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
-import michaelcirkl.ubsa.client.async.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
+import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
@@ -32,7 +34,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import com.google.cloud.storage.StorageException;
@@ -119,13 +120,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     public String createBlob(String bucketName, Blob blob) {
         try {
             BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blob.getKey());
-            if (blob.encoding() != null && !blob.encoding().isBlank()) {
-                blobBuilder.setContentEncoding(blob.encoding());
-            }
-            Map<String, String> metadata = blob.getUserMetadata();
-            if (metadata != null && !metadata.isEmpty()) {
-                blobBuilder.setMetadata(metadata);
-            }
+            WriteOptionsMappers.applyBlobToGcpBlobInfo(blobBuilder, blob);
 
             byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
             BlobInfo blobInfo = blobBuilder.build();
@@ -149,31 +144,16 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options) {
-        validateContentLength(contentLength);
+        ContentLengthValidators.validateContentLength(contentLength);
         if (content == null) {
             throw new IllegalArgumentException("Content stream must not be null.");
         }
         try {
             BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blobKey);
-            applyWriteOptions(blobBuilder, options);
+            WriteOptionsMappers.applyOptionsToGcpBlobInfo(blobBuilder, options);
             BlobInfo blobInfo = blobBuilder.build();
             try (WriteChannel writeChannel = client.writer(blobInfo)) {
-                byte[] buffer = new byte[8192];
-                long remaining = contentLength;
-                while (remaining > 0) {
-                    int read = content.read(buffer, 0, (int) Math.min(buffer.length, remaining));
-                    if (read == -1) {
-                        throw new IllegalArgumentException("Content length mismatch. Expected " + contentLength + " bytes but stream ended early.");
-                    }
-                    ByteBuffer byteBuffer = ByteBuffer.wrap(buffer, 0, read);
-                    while (byteBuffer.hasRemaining()) {
-                        writeChannel.write(byteBuffer);
-                    }
-                    remaining -= read;
-                }
-                if (content.read() != -1) {
-                    throw new IllegalArgumentException("Content length mismatch. Stream contains more data than declared contentLength " + contentLength + ".");
-                }
+                ContentLengthValidators.copyInputStreamToChannel(content, writeChannel, contentLength);
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to stream-write blob content to GCS.", e);
             }
@@ -406,22 +386,4 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         }
     }
 
-    private static void validateContentLength(long contentLength) {
-        if (contentLength < 0) {
-            throw new IllegalArgumentException("contentLength must be >= 0.");
-        }
-    }
-
-    private static void applyWriteOptions(BlobInfo.Builder blobBuilder, BlobWriteOptions options) {
-        if (options == null) {
-            return;
-        }
-        if (options.encoding() != null && !options.encoding().isBlank()) {
-            blobBuilder.setContentEncoding(options.encoding());
-        }
-        Map<String, String> metadata = options.userMetadata();
-        if (metadata != null && !metadata.isEmpty()) {
-            blobBuilder.setMetadata(metadata);
-        }
-    }
 }

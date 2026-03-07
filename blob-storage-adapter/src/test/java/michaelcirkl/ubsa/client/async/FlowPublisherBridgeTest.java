@@ -1,5 +1,6 @@
 package michaelcirkl.ubsa.client.async;
 
+import michaelcirkl.ubsa.client.streaming.FlowPublisherBridge;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.Flow;
@@ -10,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class FlowPublisherBridgeTest {
     @Test
@@ -170,5 +172,76 @@ class FlowPublisherBridgeTest {
 
         assertSame(failure, observedError.get());
         assertTrue(completed.get());
+    }
+
+    @Test
+    void bridgeRejectsNonPositiveDemand() {
+        AtomicBoolean reactiveCancelled = new AtomicBoolean(false);
+        AtomicReference<Throwable> flowError = new AtomicReference<>();
+        FlowPublisherBridge.<Integer>toFlowPublisher(subscriber -> subscriber.onSubscribe(new org.reactivestreams.Subscription() {
+            @Override
+            public void request(long n) {
+            }
+
+            @Override
+            public void cancel() {
+                reactiveCancelled.set(true);
+            }
+        })).subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                subscription.request(0);
+            }
+
+            @Override
+            public void onNext(Integer item) {
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                flowError.set(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+            }
+        });
+        assertTrue(reactiveCancelled.get());
+        assertNotNull(flowError.get());
+        assertTrue(flowError.get() instanceof IllegalArgumentException);
+
+        AtomicBoolean flowCancelled = new AtomicBoolean(false);
+        AtomicReference<Throwable> reactiveError = new AtomicReference<>();
+        FlowPublisherBridge.<Integer>toReactivePublisher(subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+            @Override
+            public void request(long n) {
+            }
+
+            @Override
+            public void cancel() {
+                flowCancelled.set(true);
+            }
+        })).subscribe(new org.reactivestreams.Subscriber<>() {
+            @Override
+            public void onSubscribe(org.reactivestreams.Subscription subscription) {
+                subscription.request(-1);
+            }
+
+            @Override
+            public void onNext(Integer integer) {
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                reactiveError.set(t);
+            }
+
+            @Override
+            public void onComplete() {
+            }
+        });
+        assertTrue(flowCancelled.get());
+        assertNotNull(reactiveError.get());
+        assertTrue(reactiveError.get() instanceof IllegalArgumentException);
     }
 }

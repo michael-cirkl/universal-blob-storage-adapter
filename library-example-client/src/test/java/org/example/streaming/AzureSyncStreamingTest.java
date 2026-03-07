@@ -7,7 +7,7 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.specialized.BlobInputStream;
 import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlobProperties;
-import michaelcirkl.ubsa.client.async.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.sync.AzureSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;

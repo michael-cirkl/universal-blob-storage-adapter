@@ -6,6 +6,7 @@ import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.client.streaming.*;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
@@ -44,7 +45,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -82,7 +82,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                     if (error == null) {
                         return true;
                     }
-                    Throwable cause = unwrapCompletionException(error);
+                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
                     if (isNotFound(cause)) {
                         return false;
                     }
@@ -139,7 +139,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                     if (error == null) {
                         return true;
                     }
-                    Throwable cause = unwrapCompletionException(error);
+                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
                     if (isNotFound(cause)) {
                         return false;
                     }
@@ -155,17 +155,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blob.getKey());
-
-        if (blob.encoding() != null) {
-            requestBuilder.contentEncoding(blob.encoding());
-        }
-        Map<String, String> metadata = blob.getUserMetadata();
-        if (metadata != null && !metadata.isEmpty()) {
-            requestBuilder.metadata(metadata);
-        }
-        if (blob.expires() != null) {
-            requestBuilder.expires(blob.expires().toInstant(ZoneOffset.UTC));
-        }
+        WriteOptionsMappers.applyBlobToAwsPutObject(requestBuilder, blob);
 
         byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
         PutObjectRequest request = requestBuilder.build();
@@ -178,17 +168,17 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<String> createBlob(String bucketName, String blobKey, Flow.Publisher<ByteBuffer> content, long contentLength, BlobWriteOptions options) {
-        validateContentLength(contentLength);
+        ContentLengthValidators.validateContentLength(contentLength);
         if (content == null) {
             throw new IllegalArgumentException("Content publisher must not be null.");
         }
         validateAwsSinglePutLength(contentLength);
-        Flow.Publisher<ByteBuffer> lengthCheckedContent = enforceContentLength(content, contentLength);
+        Flow.Publisher<ByteBuffer> lengthCheckedContent = ContentLengthValidators.enforcePublisherContentLength(content, contentLength);
         PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blobKey)
                 .contentLength(contentLength);
-        applyWriteOptions(requestBuilder, options);
+        WriteOptionsMappers.applyOptionsToAwsPutObject(requestBuilder, options);
         return wrapS3Exception(
                 client.putObject(
                                 requestBuilder.build(),
@@ -283,7 +273,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                     if (error == null) {
                         return null;
                     }
-                    Throwable cause = unwrapCompletionException(error);
+                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
                     if (isNotFound(cause)) {
                         return null;
                     }
@@ -317,7 +307,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                     if (error == null) {
                         return response.eTag();
                     }
-                    Throwable cause = unwrapCompletionException(error);
+                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
                     if (isNotFound(cause)) {
                         return null;
                     }
@@ -430,13 +420,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         return URI.create(uri);
     }
 
-    private static Throwable unwrapCompletionException(Throwable error) {
-        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
-            return completionException.getCause();
-        }
-        return error;
-    }
-
     private static boolean isNotFound(Throwable error) {
         if (error instanceof NoSuchBucketException || error instanceof NoSuchKeyException) {
             return true;
@@ -446,23 +429,11 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     private static <T> CompletableFuture<T> wrapS3Exception(CompletableFuture<T> future, String message) {
-        return future.handle((result, error) -> {
-            if (error == null) {
-                return result;
-            }
-            Throwable cause = unwrapCompletionException(error);
-            throw toCompletionException(message, cause);
-        });
+        return StreamErrorAdapters.wrapUbsaFuture(future, message, S3Exception.class);
     }
 
     private static CompletionException toCompletionException(String message, Throwable cause) {
-        if (cause instanceof UbsaException ubsaException) {
-            return new CompletionException(ubsaException);
-        }
-        if (cause instanceof S3Exception s3Exception) {
-            return new CompletionException(new UbsaException(message, s3Exception));
-        }
-        return new CompletionException(cause);
+        return StreamErrorAdapters.toCompletionException(message, cause, S3Exception.class);
     }
 
     private static void validateExpiry(Duration expiry) {
@@ -471,98 +442,10 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         }
     }
 
-    private static void validateContentLength(long contentLength) {
-        if (contentLength < 0) {
-            throw new IllegalArgumentException("contentLength must be >= 0.");
-        }
-    }
-
     private static void validateAwsSinglePutLength(long contentLength) {
         long maxSinglePutBytes = 5L * 1024L * 1024L * 1024L;
         if (contentLength > maxSinglePutBytes) {
             throw new IllegalArgumentException("AWS single PUT upload supports up to 5 GiB. Received: " + contentLength + " bytes.");
-        }
-    }
-
-    private static Flow.Publisher<ByteBuffer> enforceContentLength(Flow.Publisher<ByteBuffer> source, long expectedLength) {
-        return downstream -> source.subscribe(new Flow.Subscriber<>() {
-            private Flow.Subscription upstream;
-            private long emittedBytes;
-            private boolean done;
-
-            @Override
-            public void onSubscribe(Flow.Subscription subscription) {
-                this.upstream = subscription;
-                downstream.onSubscribe(new Flow.Subscription() {
-                    @Override
-                    public void request(long n) {
-                        subscription.request(n);
-                    }
-
-                    @Override
-                    public void cancel() {
-                        subscription.cancel();
-                    }
-                });
-            }
-
-            @Override
-            public void onNext(ByteBuffer item) {
-                if (done) {
-                    return;
-                }
-                long chunkSize = item == null ? 0L : item.remaining();
-                emittedBytes += chunkSize;
-                if (emittedBytes > expectedLength) {
-                    done = true;
-                    upstream.cancel();
-                    downstream.onError(new IllegalArgumentException(
-                            "Content length mismatch. Expected " + expectedLength + " bytes but stream exceeded that length."
-                    ));
-                    return;
-                }
-                downstream.onNext(item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                if (done) {
-                    return;
-                }
-                done = true;
-                downstream.onError(throwable);
-            }
-
-            @Override
-            public void onComplete() {
-                if (done) {
-                    return;
-                }
-                done = true;
-                if (emittedBytes != expectedLength) {
-                    downstream.onError(new IllegalArgumentException(
-                            "Content length mismatch. Expected " + expectedLength + " bytes but received " + emittedBytes + " bytes."
-                    ));
-                    return;
-                }
-                downstream.onComplete();
-            }
-        });
-    }
-
-    private static void applyWriteOptions(PutObjectRequest.Builder requestBuilder, BlobWriteOptions options) {
-        if (options == null) {
-            return;
-        }
-        if (options.encoding() != null) {
-            requestBuilder.contentEncoding(options.encoding());
-        }
-        Map<String, String> metadata = options.userMetadata();
-        if (metadata != null && !metadata.isEmpty()) {
-            requestBuilder.metadata(metadata);
-        }
-        if (options.expires() != null) {
-            requestBuilder.expires(options.expires().toInstant(ZoneOffset.UTC));
         }
     }
 

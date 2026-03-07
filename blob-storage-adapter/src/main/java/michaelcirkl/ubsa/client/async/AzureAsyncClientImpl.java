@@ -19,6 +19,7 @@ import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.client.streaming.*;
 
 import java.net.URI;
 import java.net.MalformedURLException;
@@ -32,7 +33,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import reactor.core.publisher.Flux;
 
@@ -120,7 +120,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public CompletableFuture<String> createBlob(String bucketName, Blob blob) {
         BlobAsyncClient blobClient = blobClient(bucketName, blob.getKey());
-        BlobParallelUploadOptions uploadOptions = buildUploadOptions(blob);
+        BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob);
         return wrapBlobStorageException(
                 blobClient.uploadWithResponse(uploadOptions)
                         .map(response -> response.getValue().getETag())
@@ -131,22 +131,15 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<String> createBlob(String bucketName, String blobKey, Flow.Publisher<ByteBuffer> content, long contentLength, BlobWriteOptions options) {
-        validateContentLength(contentLength);
+        ContentLengthValidators.validateContentLength(contentLength);
         if (content == null) {
             throw new IllegalArgumentException("Content publisher must not be null.");
         }
+        WriteOptionsMappers.validateAzureUnsupportedExpiry(options);
         BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
         Flux<ByteBuffer> flux = Flux.from(FlowPublisherBridge.toReactivePublisher(content));
-        BlobHttpHeaders headers = null;
-        Map<String, String> metadata = null;
-        if (options != null) {
-            if (options.encoding() != null && !options.encoding().isBlank()) {
-                headers = new BlobHttpHeaders().setContentEncoding(options.encoding());
-            }
-            if (options.userMetadata() != null && !options.userMetadata().isEmpty()) {
-                metadata = options.userMetadata();
-            }
-        }
+        BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
+        Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
         BlobHttpHeaders finalHeaders = headers;
         Map<String, String> finalMetadata = metadata;
         return wrapBlobStorageException(
@@ -274,7 +267,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                             if (exists) {
                                 return blobClient.getProperties().map(BlobProperties::getETag);
                             }
-                            return blobClient.uploadWithResponse(buildUploadOptions(blob))
+                            return blobClient.uploadWithResponse(WriteOptionsMappers.buildAzureUploadOptions(blob))
                                     .map(response -> response.getValue().getETag());
                         })
                         .toFuture(),
@@ -315,28 +308,6 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     private BlobAsyncClient blobClient(String bucketName, String blobKey) {
         return client.getBlobContainerAsyncClient(bucketName).getBlobAsyncClient(blobKey);
-    }
-
-    private static BlobParallelUploadOptions buildUploadOptions(Blob blob) {
-        byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
-        BlobParallelUploadOptions uploadOptions = new BlobParallelUploadOptions(BinaryData.fromBytes(content));
-
-        BlobHttpHeaders headers = new BlobHttpHeaders();
-        boolean hasHeaders = false;
-        if (blob.encoding() != null && !blob.encoding().isBlank()) {
-            headers.setContentEncoding(blob.encoding());
-            hasHeaders = true;
-        }
-        if (hasHeaders) {
-            uploadOptions.setHeaders(headers);
-        }
-
-        Map<String, String> metadata = blob.getUserMetadata();
-        if (metadata != null && !metadata.isEmpty()) {
-            uploadOptions.setMetadata(metadata);
-        }
-
-        return uploadOptions;
     }
 
     private static Set<Blob> mapBlobsFromList(String bucketName, BlobContainerAsyncClient containerClient, java.util.List<BlobItem> blobItems) {
@@ -389,36 +360,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         }
     }
 
-    private static void validateContentLength(long contentLength) {
-        if (contentLength < 0) {
-            throw new IllegalArgumentException("contentLength must be >= 0.");
-        }
-    }
-
     private static <T> CompletableFuture<T> wrapBlobStorageException(CompletableFuture<T> future, String message) {
-        return future.handle((result, error) -> {
-            if (error == null) {
-                return result;
-            }
-            Throwable cause = unwrapCompletionException(error);
-            throw toCompletionException(message, cause);
-        });
-    }
-
-    private static CompletionException toCompletionException(String message, Throwable cause) {
-        if (cause instanceof UbsaException ubsaException) {
-            return new CompletionException(ubsaException);
-        }
-        if (cause instanceof BlobStorageException blobStorageException) {
-            return new CompletionException(new UbsaException(message, blobStorageException));
-        }
-        return new CompletionException(cause);
-    }
-
-    private static Throwable unwrapCompletionException(Throwable error) {
-        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
-            return completionException.getCause();
-        }
-        return error;
+        return StreamErrorAdapters.wrapUbsaFuture(future, message, BlobStorageException.class);
     }
 }

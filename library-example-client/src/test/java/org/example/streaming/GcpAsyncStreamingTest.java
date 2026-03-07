@@ -3,7 +3,7 @@ package org.example.streaming;
 import com.google.api.core.ApiFutures;
 import com.google.cloud.storage.BlobWriteSession;
 import com.google.cloud.storage.Storage;
-import michaelcirkl.ubsa.client.async.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.async.GCPAsyncClientImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;

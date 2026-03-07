@@ -2,7 +2,9 @@ package michaelcirkl.ubsa.client.sync;
 
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
-import michaelcirkl.ubsa.client.async.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
+import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
@@ -44,7 +46,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 public class AWSSyncClientImpl implements BlobStorageSyncClient {
@@ -149,17 +150,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(blob.getKey());
-
-            if (blob.encoding() != null) {
-                requestBuilder.contentEncoding(blob.encoding());
-            }
-            Map<String, String> metadata = blob.getUserMetadata();
-            if (metadata != null && !metadata.isEmpty()) {
-                requestBuilder.metadata(metadata);
-            }
-            if (blob.expires() != null) {
-                requestBuilder.expires(blob.expires().toInstant(ZoneOffset.UTC));
-            }
+            WriteOptionsMappers.applyBlobToAwsPutObject(requestBuilder, blob);
 
             byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
             PutObjectRequest request = requestBuilder.build();
@@ -172,7 +163,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options) {
-        validateContentLength(contentLength);
+        ContentLengthValidators.validateContentLength(contentLength);
         if (content == null) {
             throw new IllegalArgumentException("Content stream must not be null.");
         }
@@ -181,7 +172,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(blobKey);
-            applyWriteOptions(requestBuilder, options);
+            WriteOptionsMappers.applyOptionsToAwsPutObject(requestBuilder, options);
             PutObjectResponse response = client.putObject(requestBuilder.build(), RequestBody.fromInputStream(content, contentLength));
             return response.eTag();
         } catch (S3Exception error) {
@@ -434,33 +425,11 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         }
     }
 
-    private static void validateContentLength(long contentLength) {
-        if (contentLength < 0) {
-            throw new IllegalArgumentException("contentLength must be >= 0.");
-        }
-    }
-
     private static void validateAwsSinglePutLength(long contentLength) {
         // Single PUT object max size is 5 GiB.
         long maxSinglePutBytes = 5L * 1024L * 1024L * 1024L;
         if (contentLength > maxSinglePutBytes) {
             throw new IllegalArgumentException("AWS single PUT upload supports up to 5 GiB. Received: " + contentLength + " bytes.");
-        }
-    }
-
-    private static void applyWriteOptions(PutObjectRequest.Builder requestBuilder, BlobWriteOptions options) {
-        if (options == null) {
-            return;
-        }
-        if (options.encoding() != null) {
-            requestBuilder.contentEncoding(options.encoding());
-        }
-        Map<String, String> metadata = options.userMetadata();
-        if (metadata != null && !metadata.isEmpty()) {
-            requestBuilder.metadata(metadata);
-        }
-        if (options.expires() != null) {
-            requestBuilder.expires(options.expires().toInstant(ZoneOffset.UTC));
         }
     }
 

@@ -1,6 +1,6 @@
 package michaelcirkl.ubsa;
 
-import michaelcirkl.ubsa.client.async.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 
 import java.net.URL;
 import java.nio.ByteBuffer;

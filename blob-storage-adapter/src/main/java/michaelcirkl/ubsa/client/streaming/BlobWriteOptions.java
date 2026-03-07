@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa.client.async;
+package michaelcirkl.ubsa.client.streaming;
 
 import java.time.LocalDateTime;
 import java.util.Map;

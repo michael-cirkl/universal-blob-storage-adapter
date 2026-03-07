@@ -2,7 +2,7 @@ package org.example.streaming;
 
 import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Storage;
-import michaelcirkl.ubsa.client.async.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.sync.GCPSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
@@ -80,12 +80,6 @@ class GcpSyncStreamingTest {
         public com.google.cloud.RestorableState<WriteChannel> capture() {
             throw new UnsupportedOperationException("Not needed for tests.");
         }
-
-
-        public WriteChannel restore() {
-            return this;
-        }
-
         @Override
         public boolean isOpen() {
             return open;

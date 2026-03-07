@@ -24,6 +24,7 @@ import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.client.streaming.*;
 
 import java.io.IOException;
 import java.net.URI;
@@ -36,17 +37,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
@@ -60,7 +57,6 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     public GCPAsyncClientImpl(Storage client) {
         this.client = client;
-        //check if client has gRPC
     }
 
     @Override
@@ -110,7 +106,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public CompletableFuture<Flow.Publisher<ByteBuffer>> openBlobStream(String bucketName, String blobKey) {
         return wrapStorageException(
-                CompletableFuture.completedFuture(new ReadChannelPublisher(client, BlobId.of(bucketName, blobKey))),
+                CompletableFuture.completedFuture(new GcpReadChannelFlowPublisher(client, BlobId.of(bucketName, blobKey), IO_EXECUTOR)),
                 "Failed to open GCP blob stream gs://" + bucketName + "/" + blobKey
         );
     }
@@ -145,7 +141,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<String> createBlob(String bucketName, String blobKey, Flow.Publisher<ByteBuffer> content, long contentLength, BlobWriteOptions options) {
-        validateContentLength(contentLength);
+        ContentLengthValidators.validateContentLength(contentLength);
         if (content == null) {
             throw new IllegalArgumentException("Content publisher must not be null.");
         }
@@ -314,7 +310,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, Flow.Publisher<ByteBuffer> content, long contentLength) {
         BlobWriteSession writeSession = client.blobWriteSession(blobInfo);
         try (WritableByteChannel channel = writeSession.open()) {
-            writeFromPublisher(content, channel, contentLength);
+            GcpFlowPublisherChannelWriter.writeFromPublisher(content, channel, contentLength);
         } catch (IOException e) {
             throw new CompletionException("Failed to write streamed blob content to GCS.", e);
         }
@@ -356,27 +352,13 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     private static BlobInfo buildBlobInfo(String bucketName, Blob blob) {
         BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blob.getKey());
-        if (blob.encoding() != null && !blob.encoding().isBlank()) {
-            blobBuilder.setContentEncoding(blob.encoding());
-        }
-        Map<String, String> metadata = blob.getUserMetadata();
-        if (metadata != null && !metadata.isEmpty()) {
-            blobBuilder.setMetadata(metadata);
-        }
+        WriteOptionsMappers.applyBlobToGcpBlobInfo(blobBuilder, blob);
         return blobBuilder.build();
     }
 
     private static BlobInfo buildBlobInfo(String bucketName, String blobKey, BlobWriteOptions options) {
         BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blobKey);
-        if (options != null) {
-            if (options.encoding() != null && !options.encoding().isBlank()) {
-                blobBuilder.setContentEncoding(options.encoding());
-            }
-            Map<String, String> metadata = options.userMetadata();
-            if (metadata != null && !metadata.isEmpty()) {
-                blobBuilder.setMetadata(metadata);
-            }
-        }
+        WriteOptionsMappers.applyOptionsToGcpBlobInfo(blobBuilder, options);
         return blobBuilder.build();
     }
 
@@ -422,12 +404,6 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         }
     }
 
-    private static void validateContentLength(long contentLength) {
-        if (contentLength < 0) {
-            throw new IllegalArgumentException("contentLength must be >= 0.");
-        }
-    }
-
     private static void closeQuietly(BlobReadSession session) {
         try {
             session.close();
@@ -437,173 +413,6 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     private static <T> CompletableFuture<T> wrapStorageException(CompletableFuture<T> future, String message) {
-        return future.handle((result, error) -> {
-            if (error == null) {
-                return result;
-            }
-            Throwable cause = unwrapCompletionException(error);
-            throw toCompletionException(message, cause);
-        });
-    }
-
-    private static CompletionException toCompletionException(String message, Throwable cause) {
-        if (cause instanceof UbsaException ubsaException) {
-            return new CompletionException(ubsaException);
-        }
-        if (cause instanceof StorageException storageException) {
-            return new CompletionException(new UbsaException(message, storageException));
-        }
-        return new CompletionException(cause);
-    }
-
-    private static Throwable unwrapCompletionException(Throwable error) {
-        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
-            return completionException.getCause();
-        }
-        return error;
-    }
-
-    private static void writeFromPublisher(Flow.Publisher<ByteBuffer> publisher, WritableByteChannel channel, long contentLength) {
-        CountDownLatch done = new CountDownLatch(1);
-        AtomicReference<Throwable> errorRef = new AtomicReference<>();
-        AtomicLong bytesWritten = new AtomicLong();
-
-        publisher.subscribe(new Flow.Subscriber<>() {
-            private Flow.Subscription subscription;
-
-            @Override
-            public void onSubscribe(Flow.Subscription subscription) {
-                this.subscription = subscription;
-                subscription.request(1);
-            }
-
-            @Override
-            public void onNext(ByteBuffer item) {
-                try {
-                    ByteBuffer source = item == null ? ByteBuffer.allocate(0) : item;
-                    ByteBuffer buffer = source.slice();
-                    while (buffer.hasRemaining()) {
-                        bytesWritten.addAndGet(channel.write(buffer));
-                    }
-                    subscription.request(1);
-                } catch (Throwable error) {
-                    errorRef.set(error);
-                    subscription.cancel();
-                    done.countDown();
-                }
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                errorRef.set(throwable);
-                done.countDown();
-            }
-
-            @Override
-            public void onComplete() {
-                done.countDown();
-            }
-        });
-
-        try {
-            done.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new CompletionException("Interrupted while streaming content to GCS.", e);
-        }
-
-        Throwable streamError = errorRef.get();
-        if (streamError != null) {
-            throw new CompletionException("Failed while consuming stream content for GCS upload.", streamError);
-        }
-        if (bytesWritten.get() != contentLength) {
-            throw new IllegalArgumentException(
-                    "Content length mismatch. Expected " + contentLength + " bytes but streamed " + bytesWritten.get() + " bytes."
-            );
-        }
-    }
-
-    private static final class ReadChannelPublisher implements Flow.Publisher<ByteBuffer> {
-        private final Storage storage;
-        private final BlobId blobId;
-
-        private ReadChannelPublisher(Storage storage, BlobId blobId) {
-            this.storage = storage;
-            this.blobId = blobId;
-        }
-
-        @Override
-        public void subscribe(Flow.Subscriber<? super ByteBuffer> subscriber) {
-            subscriber.onSubscribe(new Flow.Subscription() {
-                private volatile boolean cancelled;
-                private final AtomicLong demand = new AtomicLong();
-                private volatile boolean started;
-
-                @Override
-                public void request(long n) {
-                    if (n <= 0 || cancelled) {
-                        if (n <= 0 && !cancelled) {
-                            cancelled = true;
-                            subscriber.onError(new IllegalArgumentException("Demand must be > 0."));
-                        }
-                        return;
-                    }
-                    synchronized (demand) {
-                        demand.updateAndGet(current -> {
-                            long updated = current + n;
-                            return updated < 0 ? Long.MAX_VALUE : updated;
-                        });
-                        if (!started) {
-                            started = true;
-                            CompletableFuture.runAsync(this::drain, IO_EXECUTOR);
-                        }
-                        demand.notifyAll();
-                    }
-                }
-
-                @Override
-                public void cancel() {
-                    cancelled = true;
-                    synchronized (demand) {
-                        demand.notifyAll();
-                    }
-                }
-
-                private void drain() {
-                    try (var readChannel = storage.reader(blobId)) {
-                        byte[] chunk = new byte[8192];
-                        while (!cancelled) {
-                            synchronized (demand) {
-                                while (demand.get() <= 0 && !cancelled) {
-                                    demand.wait();
-                                }
-                                if (cancelled) {
-                                    return;
-                                }
-                                demand.decrementAndGet();
-                            }
-                            ByteBuffer buffer = ByteBuffer.wrap(chunk);
-                            int read = readChannel.read(buffer);
-                            if (read < 0) {
-                                subscriber.onComplete();
-                                return;
-                            }
-                            byte[] emission = new byte[read];
-                            System.arraycopy(chunk, 0, emission, 0, read);
-                            subscriber.onNext(ByteBuffer.wrap(emission));
-                        }
-                    } catch (InterruptedException interruptedException) {
-                        Thread.currentThread().interrupt();
-                        if (!cancelled) {
-                            subscriber.onError(new CompletionException("Interrupted while streaming blob content from GCS.", interruptedException));
-                        }
-                    } catch (Throwable error) {
-                        if (!cancelled) {
-                            subscriber.onError(error);
-                        }
-                    }
-                }
-            });
-        }
+        return StreamErrorAdapters.wrapUbsaFuture(future, message, StorageException.class);
     }
 }

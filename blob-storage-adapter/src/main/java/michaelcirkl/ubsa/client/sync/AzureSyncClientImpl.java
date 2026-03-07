@@ -17,7 +17,9 @@ import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
-import michaelcirkl.ubsa.client.async.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
+import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
@@ -123,7 +125,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     public String createBlob(String bucketName, Blob blob) {
         try {
             BlobClient blobClient = blobClient(bucketName, blob.getKey());
-            BlobParallelUploadOptions uploadOptions = buildUploadOptions(blob);
+            BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob);
             return blobClient.uploadWithResponse(uploadOptions, null, null)
                     .getValue()
                     .getETag();
@@ -137,15 +139,15 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options) {
-        validateContentLength(contentLength);
+        ContentLengthValidators.validateContentLength(contentLength);
         if (content == null) {
             throw new IllegalArgumentException("Content stream must not be null.");
         }
-        validateUnsupportedExpiry(options);
+        WriteOptionsMappers.validateAzureUnsupportedExpiry(options);
         try {
             BlobClient blobClient = blobClient(bucketName, blobKey);
-            BlobHttpHeaders headers = toBlobHttpHeaders(options);
-            Map<String, String> metadata = toMetadata(options);
+            BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
+            Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
             blobClient.uploadWithResponse(content, contentLength, null, headers, metadata, null, null, null, Context.NONE);
             return blobClient.getProperties().getETag();
         } catch (BlobStorageException error) {
@@ -267,7 +269,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
             if (blobClient.exists()) {
                 return blobClient.getProperties().getETag();
             }
-            return blobClient.uploadWithResponse(buildUploadOptions(blob), null, null)
+            return blobClient.uploadWithResponse(WriteOptionsMappers.buildAzureUploadOptions(blob), null, null)
                     .getValue()
                     .getETag();
         } catch (BlobStorageException error) {
@@ -310,28 +312,6 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     private BlobClient blobClient(String bucketName, String blobKey) {
         return client.getBlobContainerClient(bucketName).getBlobClient(blobKey);
-    }
-
-    private static BlobParallelUploadOptions buildUploadOptions(Blob blob) {
-        byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
-        BlobParallelUploadOptions uploadOptions = new BlobParallelUploadOptions(BinaryData.fromBytes(content));
-
-        BlobHttpHeaders headers = new BlobHttpHeaders();
-        boolean hasHeaders = false;
-        if (blob.encoding() != null && !blob.encoding().isBlank()) {
-            headers.setContentEncoding(blob.encoding());
-            hasHeaders = true;
-        }
-        if (hasHeaders) {
-            uploadOptions.setHeaders(headers);
-        }
-
-        Map<String, String> metadata = blob.getUserMetadata();
-        if (metadata != null && !metadata.isEmpty()) {
-            uploadOptions.setMetadata(metadata);
-        }
-
-        return uploadOptions;
     }
 
     private static Set<Blob> mapBlobsFromList(String bucketName, BlobContainerClient containerClient, Iterable<BlobItem> blobItems) {
@@ -384,30 +364,4 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         }
     }
 
-    private static void validateContentLength(long contentLength) {
-        if (contentLength < 0) {
-            throw new IllegalArgumentException("contentLength must be >= 0.");
-        }
-    }
-
-    private static void validateUnsupportedExpiry(BlobWriteOptions options) {
-        if (options != null && options.expires() != null) {
-            throw new IllegalArgumentException("Azure stream upload does not support BlobWriteOptions.expires.");
-        }
-    }
-
-    private static BlobHttpHeaders toBlobHttpHeaders(BlobWriteOptions options) {
-        if (options == null || options.encoding() == null || options.encoding().isBlank()) {
-            return null;
-        }
-        return new BlobHttpHeaders().setContentEncoding(options.encoding());
-    }
-
-    private static Map<String, String> toMetadata(BlobWriteOptions options) {
-        if (options == null) {
-            return null;
-        }
-        Map<String, String> metadata = options.userMetadata();
-        return (metadata == null || metadata.isEmpty()) ? null : metadata;
-    }
 }

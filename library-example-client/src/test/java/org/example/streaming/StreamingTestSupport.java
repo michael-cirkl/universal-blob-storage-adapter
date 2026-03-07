@@ -193,12 +193,6 @@ final class StreamingTestSupport {
         public com.google.cloud.RestorableState<ReadChannel> capture() {
             throw new UnsupportedOperationException("Not needed for tests.");
         }
-
-
-        public ReadChannel restore() {
-            return new ByteArrayReadChannel(data);
-        }
-
         @Override
         public void close() {
             open = false;
