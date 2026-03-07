@@ -232,14 +232,35 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
+        BlobInfo blobInfo = buildBlobInfo(bucketName, blob);
+        byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
+
+        CompletableFuture<String> createAttempt = CompletableFuture
+                .supplyAsync(
+                        () -> writeBlobAsync(blobInfo, content, Storage.BlobWriteOption.doesNotExist()),
+                        IO_EXECUTOR
+                )
+                .thenCompose(this::toCompletableFuture)
+                .thenApply(BlobInfo::getEtag);
+
+        CompletableFuture<String> resolved = createAttempt
+                .handle((etag, error) -> {
+                    if (error == null) {
+                        return CompletableFuture.completedFuture(etag);
+                    }
+                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
+                    if (isPreconditionFailed(cause)) {
+                        return CompletableFuture.supplyAsync(
+                                () -> getExistingBlobEtag(bucketName, blob.getKey()),
+                                IO_EXECUTOR
+                        );
+                    }
+                    return CompletableFuture.<String>failedFuture(cause);
+                })
+                .thenCompose(Function.identity());
+
         return wrapStorageException(
-                CompletableFuture.supplyAsync(() -> client.get(bucketName, blob.getKey()), IO_EXECUTOR)
-                        .thenCompose(existing -> {
-                            if (existing != null) {
-                                return CompletableFuture.completedFuture(existing.getEtag());
-                            }
-                            return createBlob(bucketName, blob);
-                        }),
+                resolved,
                 "Failed to create GCP blob if not exists: gs://" + bucketName + "/" + blob.getKey()
         );
     }
@@ -281,8 +302,8 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         }
     }
 
-    private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content) {
-        BlobWriteSession writeSession = client.blobWriteSession(blobInfo);
+    private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content, Storage.BlobWriteOption... writeOptions) {
+        BlobWriteSession writeSession = client.blobWriteSession(blobInfo, writeOptions);
         try (WritableByteChannel channel = writeSession.open()) {
             ByteBuffer buffer = ByteBuffer.wrap(content);
             while (buffer.hasRemaining()) {
@@ -292,6 +313,10 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
             throw new UbsaException("Failed to write blob content to GCS.", new RuntimeException(e));
         }
         return writeSession.getResult();
+    }
+
+    private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content) {
+        return writeBlobAsync(blobInfo, content, new Storage.BlobWriteOption[0]);
     }
 
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, Flow.Publisher<ByteBuffer> content, long contentLength) {
@@ -394,6 +419,19 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         } catch (IOException ignored) {
 
         }
+    }
+
+    private boolean isPreconditionFailed(Throwable error) {
+        return error instanceof StorageException storageException
+                && storageException.getCode() == 412;
+    }
+
+    private String getExistingBlobEtag(String bucketName, String blobKey) {
+        com.google.cloud.storage.Blob existing = client.get(bucketName, blobKey);
+        if (existing == null) {
+            throw new IllegalStateException("Blob not found after conditional create attempt: gs://" + bucketName + "/" + blobKey);
+        }
+        return existing.getEtag();
     }
 
     private <T> CompletableFuture<T> wrapStorageException(CompletableFuture<T> future, String message) {

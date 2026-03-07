@@ -256,15 +256,25 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public String createBlobIfNotExists(String bucketName, Blob blob) {
+        BlobClient blobClient = blobClient(bucketName, blob.getKey());
         try {
-            BlobClient blobClient = blobClient(bucketName, blob.getKey());
-            if (blobClient.exists()) {
-                return blobClient.getProperties().getETag();
-            }
-            return blobClient.uploadWithResponse(WriteOptionsMappers.buildAzureUploadOptions(blob), null, null)
+            BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob)
+                    .setRequestConditions(new BlobRequestConditions().setIfNoneMatch("*"));
+            return blobClient.uploadWithResponse(uploadOptions, null, null)
                     .getValue()
                     .getETag();
         } catch (BlobStorageException error) {
+            if (isPreconditionConflict(error)) {
+                try {
+                    return blobClient.getProperties().getETag();
+                } catch (BlobStorageException readError) {
+                    throw new UbsaException(
+                            "Failed to read existing Azure blob after conditional create conflict: "
+                                    + bucketName + "/" + blob.getKey(),
+                            readError
+                    );
+                }
+            }
             throw new UbsaException(
                     "Failed to create Azure blob if not exists: " + bucketName + "/" + blob.getKey(),
                     error
@@ -288,7 +298,6 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        // in future interface javadoc say azure (ofc both sync, async) doesnt have functionality to enforce contentType. I decided to ignore it, but leave it in since gcp/aws supports it.
         validateExpiry(expiry);
         try {
             var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
@@ -355,6 +364,18 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
+    }
+
+    private boolean isPreconditionConflict(BlobStorageException error) {
+        int statusCode = error.getStatusCode();
+        if (statusCode == 412) {
+            return true;
+        }
+        BlobErrorCode errorCode = error.getErrorCode();
+        return errorCode == BlobErrorCode.BLOB_ALREADY_EXISTS
+                || errorCode == BlobErrorCode.RESOURCE_ALREADY_EXISTS
+                || errorCode == BlobErrorCode.CONDITION_NOT_MET
+                || errorCode == BlobErrorCode.TARGET_CONDITION_NOT_MET;
     }
 
 }

@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.function.Function;
 
 public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     private final BlobServiceAsyncClient client;
@@ -248,16 +249,27 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
         BlobAsyncClient blobClient = blobClient(bucketName, blob.getKey());
+        BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob)
+                .setRequestConditions(new BlobRequestConditions().setIfNoneMatch("*"));
+        CompletableFuture<String> createAttempt = blobClient.uploadWithResponse(uploadOptions)
+                .map(response -> response.getValue().getETag())
+                .toFuture();
+
+        CompletableFuture<String> resolved = createAttempt
+                .handle((etag, error) -> {
+                    if (error == null) {
+                        return CompletableFuture.completedFuture(etag);
+                    }
+                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
+                    if (cause instanceof BlobStorageException blobError && isPreconditionConflict(blobError)) {
+                        return blobClient.getProperties().map(BlobProperties::getETag).toFuture();
+                    }
+                    return CompletableFuture.<String>failedFuture(cause);
+                })
+                .thenCompose(Function.identity());
+
         return wrapBlobStorageException(
-                blobClient.exists()
-                        .flatMap(exists -> {
-                            if (exists) {
-                                return blobClient.getProperties().map(BlobProperties::getETag);
-                            }
-                            return blobClient.uploadWithResponse(WriteOptionsMappers.buildAzureUploadOptions(blob))
-                                    .map(response -> response.getValue().getETag());
-                        })
-                        .toFuture(),
+                resolved,
                 "Failed to create Azure blob if not exists: " + bucketName + "/" + blob.getKey()
         );
     }
@@ -345,6 +357,18 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
+    }
+
+    private boolean isPreconditionConflict(BlobStorageException error) {
+        int statusCode = error.getStatusCode();
+        if (statusCode == 412) {
+            return true;
+        }
+        BlobErrorCode errorCode = error.getErrorCode();
+        return errorCode == BlobErrorCode.BLOB_ALREADY_EXISTS
+                || errorCode == BlobErrorCode.RESOURCE_ALREADY_EXISTS
+                || errorCode == BlobErrorCode.CONDITION_NOT_MET
+                || errorCode == BlobErrorCode.TARGET_CONDITION_NOT_MET;
     }
 
     private <T> CompletableFuture<T> wrapBlobStorageException(CompletableFuture<T> future, String message) {

@@ -274,15 +274,19 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public String createBlobIfNotExists(String bucketName, Blob blob) {
-        HeadObjectRequest headRequest = HeadObjectRequest.builder()
-                .bucket(bucketName)
-                .key(blob.getKey())
-                .build();
         try {
-            return client.headObject(headRequest).eTag();
+            PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blob.getKey())
+                    .ifNoneMatch("*");
+            WriteOptionsMappers.applyBlobToAwsPutObject(requestBuilder, blob);
+
+            byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
+            PutObjectResponse response = client.putObject(requestBuilder.build(), RequestBody.fromBytes(content));
+            return response.eTag();
         } catch (S3Exception error) {
-            if (isNotFound(error)) {
-                return createBlob(bucketName, blob);
+            if (isPreconditionFailed(error)) {
+                return getExistingBlobEtag(bucketName, blob.getKey());
             }
             throw new UbsaException(
                     "Failed to create AWS blob if not exists: s3://" + bucketName + "/" + blob.getKey(),
@@ -393,6 +397,27 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         }
         return error instanceof S3Exception s3Exception
                 && s3Exception.statusCode() == 404;
+    }
+
+    private boolean isPreconditionFailed(Throwable error) {
+        return error instanceof S3Exception s3Exception
+                && s3Exception.statusCode() == 412;
+    }
+
+    private String getExistingBlobEtag(String bucketName, String blobKey) {
+        HeadObjectRequest headRequest = HeadObjectRequest.builder()
+                .bucket(bucketName)
+                .key(blobKey)
+                .build();
+        try {
+            return client.headObject(headRequest).eTag();
+        } catch (S3Exception headError) {
+            throw new UbsaException(
+                    "Failed to read existing AWS blob after conditional create conflict: s3://"
+                            + bucketName + "/" + blobKey,
+                    headError
+            );
+        }
     }
 
     private LocalDateTime parseExpiresHeader(String expiresHeader) {

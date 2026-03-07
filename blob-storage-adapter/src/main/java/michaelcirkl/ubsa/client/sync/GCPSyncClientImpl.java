@@ -280,12 +280,24 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     @Override
     public String createBlobIfNotExists(String bucketName, Blob blob) {
         try {
-            com.google.cloud.storage.Blob existing = client.get(bucketName, blob.getKey());
-            if (existing != null) {
-                return existing.getEtag();
+            BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blob.getKey());
+            WriteOptionsMappers.applyBlobToGcpBlobInfo(blobBuilder, blob);
+            BlobInfo blobInfo = blobBuilder.build();
+
+            byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
+            try (WriteChannel writeChannel = client.writer(blobInfo, Storage.BlobWriteOption.doesNotExist())) {
+                ByteBuffer buffer = ByteBuffer.wrap(content);
+                while (buffer.hasRemaining()) {
+                    writeChannel.write(buffer);
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to write blob content to GCS.", e);
             }
-            return createBlob(bucketName, blob);
+            return getExistingBlobEtag(bucketName, blob.getKey());
         } catch (StorageException error) {
+            if (isPreconditionFailed(error)) {
+                return getExistingBlobEtag(bucketName, blob.getKey());
+            }
             throw new UbsaException(
                     "Failed to create GCP blob if not exists: gs://" + bucketName + "/" + blob.getKey(),
                     error
@@ -373,6 +385,18 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         } catch (StorageException error) {
             throw new UbsaException("Failed to retrieve GCP blob metadata: gs://" + bucketName + "/" + blobKey, error);
         }
+    }
+
+    private boolean isPreconditionFailed(StorageException error) {
+        return error.getCode() == 412;
+    }
+
+    private String getExistingBlobEtag(String bucketName, String blobKey) {
+        com.google.cloud.storage.Blob existing = client.get(bucketName, blobKey);
+        if (existing == null) {
+            throw new IllegalStateException("Blob not found after conditional create attempt: gs://" + bucketName + "/" + blobKey);
+        }
+        return existing.getEtag();
     }
 
 }

@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
+import java.util.function.Function;
 
 public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
@@ -277,30 +278,40 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
-        HeadObjectRequest headRequest = HeadObjectRequest.builder()
+        PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blob.getKey())
-                .build();
-        CompletableFuture<String> existing = client.headObject(headRequest)
-                .handle((response, error) -> {
+                .ifNoneMatch("*");
+        WriteOptionsMappers.applyBlobToAwsPutObject(requestBuilder, blob);
+
+        byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
+        CompletableFuture<String> createAttempt = client.putObject(
+                        requestBuilder.build(),
+                        AsyncRequestBody.fromBytes(content)
+                )
+                .thenApply(PutObjectResponse::eTag);
+
+        CompletableFuture<String> resolved = createAttempt
+                .handle((etag, error) -> {
                     if (error == null) {
-                        return response.eTag();
+                        return CompletableFuture.completedFuture(etag);
                     }
                     Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
-                    if (isNotFound(cause)) {
-                        return null;
+                    if (isPreconditionFailed(cause)) {
+                        HeadObjectRequest headRequest = HeadObjectRequest.builder()
+                                .bucket(bucketName)
+                                .key(blob.getKey())
+                                .build();
+                        return client.headObject(headRequest).thenApply(HeadObjectResponse::eTag);
                     }
-                    throw toCompletionException(
-                            "Failed to create AWS blob if not exists: s3://" + bucketName + "/" + blob.getKey(),
-                            cause
-                    );
-                });
-        return existing.thenCompose(etag -> {
-            if (etag != null) {
-                return CompletableFuture.completedFuture(etag);
-            }
-            return createBlob(bucketName, blob);
-        });
+                    return CompletableFuture.<String>failedFuture(cause);
+                })
+                .thenCompose(Function.identity());
+
+        return wrapS3Exception(
+                resolved,
+                "Failed to create AWS blob if not exists: s3://" + bucketName + "/" + blob.getKey()
+        );
     }
 
     @Override
@@ -405,6 +416,11 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         }
         return error instanceof S3Exception s3Exception
                 && s3Exception.statusCode() == 404;
+    }
+
+    private boolean isPreconditionFailed(Throwable error) {
+        return error instanceof S3Exception s3Exception
+                && s3Exception.statusCode() == 412;
     }
 
     private LocalDateTime parseExpiresHeader(String expiresHeader) {
