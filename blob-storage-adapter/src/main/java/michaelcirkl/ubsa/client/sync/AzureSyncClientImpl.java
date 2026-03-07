@@ -1,6 +1,7 @@
 package michaelcirkl.ubsa.client.sync;
 
 import com.azure.core.util.BinaryData;
+import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
@@ -16,6 +17,7 @@ import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
+import michaelcirkl.ubsa.client.async.BlobWriteOptions;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
@@ -23,6 +25,7 @@ import michaelcirkl.ubsa.UbsaException;
 import java.net.URI;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -86,6 +89,15 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
+    public InputStream openBlobStream(String bucketName, String blobKey) {
+        try {
+            return blobClient(bucketName, blobKey).openInputStream();
+        } catch (BlobStorageException error) {
+            throw new UbsaException("Failed to open Azure blob stream " + bucketName + "/" + blobKey, error);
+        }
+    }
+
+    @Override
     public Void deleteBucket(String bucketName) {
         try {
             client.getBlobContainerClient(bucketName).delete();
@@ -118,6 +130,27 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         } catch (BlobStorageException error) {
             throw new UbsaException(
                     "Failed to create Azure blob " + blob.getKey() + " in container " + bucketName,
+                    error
+            );
+        }
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options) {
+        validateContentLength(contentLength);
+        if (content == null) {
+            throw new IllegalArgumentException("Content stream must not be null.");
+        }
+        validateUnsupportedExpiry(options);
+        try {
+            BlobClient blobClient = blobClient(bucketName, blobKey);
+            BlobHttpHeaders headers = toBlobHttpHeaders(options);
+            Map<String, String> metadata = toMetadata(options);
+            blobClient.uploadWithResponse(content, contentLength, null, headers, metadata, null, null, null, Context.NONE);
+            return blobClient.getProperties().getETag();
+        } catch (BlobStorageException error) {
+            throw new UbsaException(
+                    "Failed to stream-create Azure blob " + blobKey + " in container " + bucketName,
                     error
             );
         }
@@ -349,5 +382,32 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
+    }
+
+    private static void validateContentLength(long contentLength) {
+        if (contentLength < 0) {
+            throw new IllegalArgumentException("contentLength must be >= 0.");
+        }
+    }
+
+    private static void validateUnsupportedExpiry(BlobWriteOptions options) {
+        if (options != null && options.expires() != null) {
+            throw new IllegalArgumentException("Azure stream upload does not support BlobWriteOptions.expires.");
+        }
+    }
+
+    private static BlobHttpHeaders toBlobHttpHeaders(BlobWriteOptions options) {
+        if (options == null || options.encoding() == null || options.encoding().isBlank()) {
+            return null;
+        }
+        return new BlobHttpHeaders().setContentEncoding(options.encoding());
+    }
+
+    private static Map<String, String> toMetadata(BlobWriteOptions options) {
+        if (options == null) {
+            return null;
+        }
+        Map<String, String> metadata = options.userMetadata();
+        return (metadata == null || metadata.isEmpty()) ? null : metadata;
     }
 }

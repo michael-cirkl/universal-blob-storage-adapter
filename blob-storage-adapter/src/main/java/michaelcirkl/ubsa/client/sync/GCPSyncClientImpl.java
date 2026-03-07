@@ -14,14 +14,17 @@ import com.google.cloud.storage.Storage.BucketListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
+import michaelcirkl.ubsa.client.async.BlobWriteOptions;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.nio.channels.Channels;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
@@ -84,6 +87,16 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
+    public InputStream openBlobStream(String bucketName, String blobKey) {
+        try {
+            ReadChannel readChannel = client.reader(BlobId.of(bucketName, blobKey));
+            return Channels.newInputStream(readChannel);
+        } catch (StorageException error) {
+            throw new UbsaException("Failed to open GCP blob stream gs://" + bucketName + "/" + blobKey, error);
+        }
+    }
+
+    @Override
     public Void deleteBucket(String bucketName) {
         try {
             client.delete(bucketName);
@@ -131,6 +144,46 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             return created.getEtag();
         } catch (StorageException error) {
             throw new UbsaException("Failed to create GCP blob gs://" + bucketName + "/" + blob.getKey(), error);
+        }
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options) {
+        validateContentLength(contentLength);
+        if (content == null) {
+            throw new IllegalArgumentException("Content stream must not be null.");
+        }
+        try {
+            BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blobKey);
+            applyWriteOptions(blobBuilder, options);
+            BlobInfo blobInfo = blobBuilder.build();
+            try (WriteChannel writeChannel = client.writer(blobInfo)) {
+                byte[] buffer = new byte[8192];
+                long remaining = contentLength;
+                while (remaining > 0) {
+                    int read = content.read(buffer, 0, (int) Math.min(buffer.length, remaining));
+                    if (read == -1) {
+                        throw new IllegalArgumentException("Content length mismatch. Expected " + contentLength + " bytes but stream ended early.");
+                    }
+                    ByteBuffer byteBuffer = ByteBuffer.wrap(buffer, 0, read);
+                    while (byteBuffer.hasRemaining()) {
+                        writeChannel.write(byteBuffer);
+                    }
+                    remaining -= read;
+                }
+                if (content.read() != -1) {
+                    throw new IllegalArgumentException("Content length mismatch. Stream contains more data than declared contentLength " + contentLength + ".");
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to stream-write blob content to GCS.", e);
+            }
+            com.google.cloud.storage.Blob created = client.get(bucketName, blobKey);
+            if (created == null) {
+                throw new IllegalStateException("Created blob could not be retrieved: gs://" + bucketName + "/" + blobKey);
+            }
+            return created.getEtag();
+        } catch (StorageException error) {
+            throw new UbsaException("Failed to stream-create GCP blob gs://" + bucketName + "/" + blobKey, error);
         }
     }
 
@@ -350,6 +403,25 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             return blob;
         } catch (StorageException error) {
             throw new UbsaException("Failed to retrieve GCP blob metadata: gs://" + bucketName + "/" + blobKey, error);
+        }
+    }
+
+    private static void validateContentLength(long contentLength) {
+        if (contentLength < 0) {
+            throw new IllegalArgumentException("contentLength must be >= 0.");
+        }
+    }
+
+    private static void applyWriteOptions(BlobInfo.Builder blobBuilder, BlobWriteOptions options) {
+        if (options == null) {
+            return;
+        }
+        if (options.encoding() != null && !options.encoding().isBlank()) {
+            blobBuilder.setContentEncoding(options.encoding());
+        }
+        Map<String, String> metadata = options.userMetadata();
+        if (metadata != null && !metadata.isEmpty()) {
+            blobBuilder.setMetadata(metadata);
         }
     }
 }

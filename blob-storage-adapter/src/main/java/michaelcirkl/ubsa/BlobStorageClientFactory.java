@@ -64,6 +64,7 @@ public class BlobStorageClientFactory {
         }
     }
 
+    // Document using terms used in section client wrapping
     private static <T> T adaptClient(
             Object client,
             String sdkClassName,

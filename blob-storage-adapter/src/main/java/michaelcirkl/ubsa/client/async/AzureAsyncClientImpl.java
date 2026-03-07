@@ -23,6 +23,7 @@ import michaelcirkl.ubsa.UbsaException;
 import java.net.URI;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -32,6 +33,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Flow;
+import reactor.core.publisher.Flux;
 
 public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     private final BlobServiceAsyncClient client;
@@ -87,6 +90,14 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
+    public CompletableFuture<Flow.Publisher<ByteBuffer>> openBlobStream(String bucketName, String blobKey) {
+        BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
+        return CompletableFuture.completedFuture(
+                FlowPublisherBridge.toFlowPublisher(blobClient.downloadStream())
+        );
+    }
+
+    @Override
     public CompletableFuture<Void> deleteBucket(String bucketName) {
         return wrapBlobStorageException(
                 client.getBlobContainerAsyncClient(bucketName)
@@ -115,6 +126,35 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                         .map(response -> response.getValue().getETag())
                         .toFuture(),
                 "Failed to create Azure blob " + bucketName + "/" + blob.getKey()
+        );
+    }
+
+    @Override
+    public CompletableFuture<String> createBlob(String bucketName, String blobKey, Flow.Publisher<ByteBuffer> content, long contentLength, BlobWriteOptions options) {
+        validateContentLength(contentLength);
+        if (content == null) {
+            throw new IllegalArgumentException("Content publisher must not be null.");
+        }
+        BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
+        Flux<ByteBuffer> flux = Flux.from(FlowPublisherBridge.toReactivePublisher(content));
+        BlobHttpHeaders headers = null;
+        Map<String, String> metadata = null;
+        if (options != null) {
+            if (options.encoding() != null && !options.encoding().isBlank()) {
+                headers = new BlobHttpHeaders().setContentEncoding(options.encoding());
+            }
+            if (options.userMetadata() != null && !options.userMetadata().isEmpty()) {
+                metadata = options.userMetadata();
+            }
+        }
+        BlobHttpHeaders finalHeaders = headers;
+        Map<String, String> finalMetadata = metadata;
+        return wrapBlobStorageException(
+                blobClient.getBlockBlobAsyncClient()
+                        .uploadWithResponse(flux, contentLength, finalHeaders, finalMetadata, null, null, null)
+                        .map(response -> response.getValue().getETag())
+                        .toFuture(),
+                "Failed to stream-create Azure blob " + bucketName + "/" + blobKey
         );
     }
 
@@ -346,6 +386,12 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     private static void validateRange(long startInclusive, long endInclusive) {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
+        }
+    }
+
+    private static void validateContentLength(long contentLength) {
+        if (contentLength < 0) {
+            throw new IllegalArgumentException("contentLength must be >= 0.");
         }
     }
 

@@ -1,9 +1,11 @@
 package michaelcirkl.ubsa;
 
+import michaelcirkl.ubsa.client.async.BlobWriteOptions;
+
 import java.net.URL;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 public interface BlobStorageSyncClient {
     Provider getProvider();
@@ -14,11 +16,15 @@ public interface BlobStorageSyncClient {
 
     Blob getBlob(String bucketName, String blobKey);
 
+    InputStream openBlobStream(String bucketName, String blobKey);
+
     Void deleteBucket(String bucketName);
 
     Boolean blobExists(String bucketName, String blobKey);
 
     String createBlob(String bucketName, Blob blob);
+
+    String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options);
 
     Void deleteBlob(String bucketName, String blobKey);
 

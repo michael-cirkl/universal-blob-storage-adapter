@@ -2,10 +2,12 @@ package michaelcirkl.ubsa.client.sync;
 
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
+import michaelcirkl.ubsa.client.async.BlobWriteOptions;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.UbsaException;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -36,6 +38,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 
 import java.net.URI;
 import java.net.URL;
+import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -97,6 +100,20 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
+    public InputStream openBlobStream(String bucketName, String blobKey) {
+        try {
+            GetObjectRequest request = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
+            ResponseInputStream<GetObjectResponse> stream = client.getObject(request);
+            return stream;
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to open AWS blob stream s3://" + bucketName + "/" + blobKey, error);
+        }
+    }
+
+    @Override
     public Void deleteBucket(String bucketName) {
         try {
             DeleteBucketRequest request = DeleteBucketRequest.builder()
@@ -150,6 +167,25 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             return response.eTag();
         } catch (S3Exception error) {
             throw new UbsaException("Failed to create AWS blob " + blob.getKey() + " in bucket " + bucketName, error);
+        }
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options) {
+        validateContentLength(contentLength);
+        if (content == null) {
+            throw new IllegalArgumentException("Content stream must not be null.");
+        }
+        validateAwsSinglePutLength(contentLength);
+        try {
+            PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey);
+            applyWriteOptions(requestBuilder, options);
+            PutObjectResponse response = client.putObject(requestBuilder.build(), RequestBody.fromInputStream(content, contentLength));
+            return response.eTag();
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to stream-create AWS blob " + blobKey + " in bucket " + bucketName, error);
         }
     }
 
@@ -395,6 +431,36 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     private static void validateExpiry(Duration expiry) {
         if (expiry == null || expiry.isZero() || expiry.isNegative()) {
             throw new IllegalArgumentException("Expiry must be a positive duration.");
+        }
+    }
+
+    private static void validateContentLength(long contentLength) {
+        if (contentLength < 0) {
+            throw new IllegalArgumentException("contentLength must be >= 0.");
+        }
+    }
+
+    private static void validateAwsSinglePutLength(long contentLength) {
+        // Single PUT object max size is 5 GiB.
+        long maxSinglePutBytes = 5L * 1024L * 1024L * 1024L;
+        if (contentLength > maxSinglePutBytes) {
+            throw new IllegalArgumentException("AWS single PUT upload supports up to 5 GiB. Received: " + contentLength + " bytes.");
+        }
+    }
+
+    private static void applyWriteOptions(PutObjectRequest.Builder requestBuilder, BlobWriteOptions options) {
+        if (options == null) {
+            return;
+        }
+        if (options.encoding() != null) {
+            requestBuilder.contentEncoding(options.encoding());
+        }
+        Map<String, String> metadata = options.userMetadata();
+        if (metadata != null && !metadata.isEmpty()) {
+            requestBuilder.metadata(metadata);
+        }
+        if (options.expires() != null) {
+            requestBuilder.expires(options.expires().toInstant(ZoneOffset.UTC));
         }
     }
 
