@@ -5,8 +5,6 @@ import michaelcirkl.ubsa.Blob;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,11 +12,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class WriteOptionsMappersTest {
     @Test
     void mapsWriteOptionsToAwsAndGcpBuilders() {
-        LocalDateTime expires = LocalDateTime.of(2030, 1, 1, 0, 0);
         BlobWriteOptions options = BlobWriteOptions.builder()
                 .encoding("gzip")
                 .userMetadata(Map.of("a", "b"))
-                .expires(expires)
                 .build();
 
         PutObjectRequest.Builder awsBuilder = PutObjectRequest.builder().bucket("b").key("k");
@@ -26,7 +22,6 @@ class WriteOptionsMappersTest {
         PutObjectRequest awsRequest = awsBuilder.build();
         assertEquals("gzip", awsRequest.contentEncoding());
         assertEquals("b", awsRequest.metadata().get("a"));
-        assertEquals(expires.toInstant(ZoneOffset.UTC), awsRequest.expires());
 
         BlobInfo.Builder gcpBuilder = BlobInfo.newBuilder("bucket", "blob");
         WriteOptionsMappers.applyOptionsToGcpBlobInfo(gcpBuilder, options);
@@ -57,12 +52,7 @@ class WriteOptionsMappersTest {
     }
 
     @Test
-    void enforcesAzureExpiresUnsupportedAndMapsHeadersMetadata() {
-        BlobWriteOptions unsupported = BlobWriteOptions.builder()
-                .expires(LocalDateTime.now().plusDays(1))
-                .build();
-        assertThrows(IllegalArgumentException.class, () -> WriteOptionsMappers.validateAzureUnsupportedExpiry(unsupported));
-
+    void mapsAzureHeadersAndMetadata() {
         BlobWriteOptions empty = BlobWriteOptions.builder().encoding(" ").build();
         assertNull(WriteOptionsMappers.toAzureHeaders(empty));
         assertNull(WriteOptionsMappers.toAzureMetadata(empty));

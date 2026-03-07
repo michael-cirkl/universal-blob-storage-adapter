@@ -38,9 +38,6 @@ public final class WriteOptionsMappers {
         if (metadata != null) {
             requestBuilder.metadata(metadata);
         }
-        if (options.expires() != null) {
-            requestBuilder.expires(options.expires().toInstant(ZoneOffset.UTC));
-        }
     }
 
     public static void applyBlobToGcpBlobInfo(BlobInfo.Builder blobBuilder, Blob blob) {
@@ -87,12 +84,6 @@ public final class WriteOptionsMappers {
 
     public static Map<String, String> toAzureMetadata(BlobWriteOptions options) {
         return options == null ? null : nonEmptyMetadata(options.userMetadata());
-    }
-
-    public static void validateAzureUnsupportedExpiry(BlobWriteOptions options) {
-        if (options != null && options.expires() != null) {
-            throw new IllegalArgumentException("Azure stream upload does not support BlobWriteOptions.expires.");
-        }
     }
 
     private static BlobHttpHeaders toAzureHeaders(String encoding) {

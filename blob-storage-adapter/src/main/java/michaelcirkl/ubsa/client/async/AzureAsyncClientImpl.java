@@ -125,7 +125,6 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         if (content == null) {
             throw new IllegalArgumentException("Content publisher must not be null.");
         }
-        WriteOptionsMappers.validateAzureUnsupportedExpiry(options);
         BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
         Flux<ByteBuffer> flux = Flux.from(FlowPublisherBridge.toReactivePublisher(content));
         BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);

@@ -133,7 +133,6 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         if (content == null) {
             throw new IllegalArgumentException("Content stream must not be null.");
         }
-        WriteOptionsMappers.validateAzureUnsupportedExpiry(options);
         try {
             BlobClient blobClient = blobClient(bucketName, blobKey);
             BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
@@ -289,6 +288,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+        // in future interface javadoc say azure (ofc both sync, async) doesnt have functionality to enforce contentType. I decided to ignore it, but leave it in since gcp/aws supports it.
         validateExpiry(expiry);
         try {
             var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
