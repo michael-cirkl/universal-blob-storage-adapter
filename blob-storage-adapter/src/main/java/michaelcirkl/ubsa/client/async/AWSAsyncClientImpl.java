@@ -153,7 +153,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
             throw new IllegalArgumentException("Content publisher must not be null.");
         }
         validateAwsSinglePutLength(contentLength);
-        Flow.Publisher<ByteBuffer> lengthCheckedContent = ContentLengthValidators.enforcePublisherContentLength(content, contentLength);
         PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blobKey)
@@ -162,7 +161,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         return wrapS3Exception(
                 client.putObject(
                                 requestBuilder.build(),
-                                AsyncRequestBody.fromPublisher(FlowPublisherBridge.toReactivePublisher(lengthCheckedContent))
+                                AsyncRequestBody.fromPublisher(FlowPublisherBridge.toReactivePublisher(content))
                         )
                         .thenApply(PutObjectResponse::eTag),
                 "Failed to stream-create AWS blob s3://" + bucketName + "/" + blobKey

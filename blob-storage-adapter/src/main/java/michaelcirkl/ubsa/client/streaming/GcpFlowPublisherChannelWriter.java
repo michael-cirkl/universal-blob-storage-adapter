@@ -38,6 +38,7 @@ public final class GcpFlowPublisherChannelWriter {
                 try {
                     ByteBuffer source = item == null ? ByteBuffer.allocate(0) : item;
                     ByteBuffer buffer = source.slice();
+                    // upload backpressure mechanism, GCP SDK doesnt have it implemented like azure,s3
                     while (buffer.hasRemaining()) {
                         bytesWritten.addAndGet(channel.write(buffer));
                     }

@@ -57,6 +57,7 @@ public final class GcpReadChannelFlowPublisher implements Flow.Publisher<ByteBuf
             }
 
             private void drain() {
+                // download backpressuree mechanism, gcp doesnt have it automatically like azure, s3
                 try (ReadChannel readChannel = storage.reader(blobId)) {
                     byte[] chunk = new byte[8192];
                     while (true) {
