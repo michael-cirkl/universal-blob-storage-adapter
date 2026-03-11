@@ -1,6 +1,5 @@
 package michaelcirkl.ubsa.client.streaming;
 
-import java.util.Objects;
 import java.util.concurrent.Flow;
 
 public final class FlowPublisherBridge {
@@ -8,17 +7,13 @@ public final class FlowPublisherBridge {
     }
 
     public static <T> Flow.Publisher<T> toFlowPublisher(org.reactivestreams.Publisher<T> publisher) {
-        Objects.requireNonNull(publisher, "publisher must not be null");
         return flowSubscriber -> {
-            Objects.requireNonNull(flowSubscriber, "subscriber must not be null");
             publisher.subscribe(new ReactiveToFlowSubscriber<>(flowSubscriber));
         };
     }
 
     public static <T> org.reactivestreams.Publisher<T> toReactivePublisher(Flow.Publisher<T> publisher) {
-        Objects.requireNonNull(publisher, "publisher must not be null");
         return reactiveSubscriber -> {
-            Objects.requireNonNull(reactiveSubscriber, "subscriber must not be null");
             publisher.subscribe(new FlowToReactiveSubscriber<>(reactiveSubscriber));
         };
     }
@@ -27,7 +22,7 @@ public final class FlowPublisherBridge {
         private final Flow.Subscriber<? super T> downstream;
 
         private ReactiveToFlowSubscriber(Flow.Subscriber<? super T> downstream) {
-            this.downstream = Objects.requireNonNull(downstream, "subscriber must not be null");
+            this.downstream = downstream;
         }
 
         @Override
@@ -81,7 +76,7 @@ public final class FlowPublisherBridge {
         private final org.reactivestreams.Subscriber<? super T> downstream;
 
         private FlowToReactiveSubscriber(org.reactivestreams.Subscriber<? super T> downstream) {
-            this.downstream = Objects.requireNonNull(downstream, "subscriber must not be null");
+            this.downstream = downstream;
         }
 
         @Override
