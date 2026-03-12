@@ -4,6 +4,7 @@ import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
+import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -20,6 +21,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Path;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -135,6 +137,21 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             return response.eTag();
         } catch (S3Exception error) {
             throw new UbsaException("Failed to create AWS blob " + blob.getKey() + " in bucket " + bucketName, error);
+        }
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, Path sourceFile) {
+        FileUploadValidators.validateSourceFile(sourceFile);
+        try {
+            PutObjectRequest request = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
+            PutObjectResponse response = client.putObject(request, RequestBody.fromFile(sourceFile));
+            return response.eTag();
+        } catch (S3Exception error) {
+            throw new UbsaException("Failed to create AWS blob " + blobKey + " from file in bucket " + bucketName, error);
         }
     }
 

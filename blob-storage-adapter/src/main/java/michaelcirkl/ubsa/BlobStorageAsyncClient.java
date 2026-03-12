@@ -4,6 +4,7 @@ import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -25,6 +26,8 @@ public interface BlobStorageAsyncClient {
     CompletableFuture<Boolean> blobExists(String bucketName, String blobKey);
 
     CompletableFuture<String> createBlob(String bucketName, Blob blob);
+
+    CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile);
 
     CompletableFuture<String> createBlob(String bucketName, String blobKey, Flow.Publisher<ByteBuffer> content, long contentLength, BlobWriteOptions options);
 

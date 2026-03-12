@@ -12,6 +12,7 @@ import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
+import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 
 import java.io.ByteArrayOutputStream;
@@ -20,6 +21,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.nio.channels.Channels;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -131,6 +133,22 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             return created.getEtag();
         } catch (StorageException error) {
             throw new UbsaException("Failed to create GCP blob gs://" + bucketName + "/" + blob.getKey(), error);
+        }
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, Path sourceFile) {
+        FileUploadValidators.validateSourceFile(sourceFile);
+        try {
+            BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
+            return client.createFrom(blobInfo, sourceFile).getEtag();
+        } catch (IOException e) {
+            throw new UbsaException(
+                    "Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file",
+                    new RuntimeException(e)
+            );
+        } catch (StorageException error) {
+            throw new UbsaException("Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file", error);
         }
     }
 

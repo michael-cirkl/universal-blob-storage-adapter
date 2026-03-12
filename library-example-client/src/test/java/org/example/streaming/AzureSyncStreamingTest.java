@@ -1,19 +1,25 @@
 package org.example.streaming;
 
+import com.azure.core.http.rest.Response;
 import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobProperties;
+import com.azure.storage.blob.models.BlockBlobItem;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
+import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.specialized.BlobInputStream;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.sync.AzureSyncClientImpl;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -75,5 +81,41 @@ class AzureSyncStreamingTest {
         assertEquals("v", uploadOptions.getMetadata().get("k"));
         verify(blobClient, never()).setHttpHeaders(any());
         verify(blobClient, never()).setMetadata(any());
+    }
+
+    @Test
+    void createBlobFromFileUsesAzureUploadFromFile(@TempDir Path tempDir) throws Exception {
+        BlobServiceClient serviceClient = mock(BlobServiceClient.class);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        BlobClient blobClient = mock(BlobClient.class);
+        Response<BlockBlobItem> response = mock(Response.class);
+        BlockBlobItem item = mock(BlockBlobItem.class);
+        Path sourceFile = Files.writeString(tempDir.resolve("azure-sync.txt"), "azure-sync-file");
+
+        when(serviceClient.getBlobContainerClient("bucket")).thenReturn(containerClient);
+        when(containerClient.getBlobClient("blob")).thenReturn(blobClient);
+        when(blobClient.uploadFromFileWithResponse(any(BlobUploadFromFileOptions.class), eq(null), eq(Context.NONE)))
+                .thenReturn(response);
+        when(response.getValue()).thenReturn(item);
+        when(item.getETag()).thenReturn("etag-azure-sync-file");
+
+        AzureSyncClientImpl adapter = new AzureSyncClientImpl(serviceClient);
+        String etag = adapter.createBlob("bucket", "blob", sourceFile);
+        assertEquals("etag-azure-sync-file", etag);
+
+        ArgumentCaptor<BlobUploadFromFileOptions> optionsCaptor = ArgumentCaptor.forClass(BlobUploadFromFileOptions.class);
+        verify(blobClient).uploadFromFileWithResponse(optionsCaptor.capture(), eq(null), eq(Context.NONE));
+        assertEquals(sourceFile.toString(), optionsCaptor.getValue().getFilePath());
+    }
+
+    @Test
+    void createBlobFromFileRejectsMissingSourceFile(@TempDir Path tempDir) {
+        AzureSyncClientImpl adapter = new AzureSyncClientImpl(mock(BlobServiceClient.class));
+        Path missingFile = tempDir.resolve("missing-file.txt");
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.createBlob("bucket", "blob", missingFile)
+        );
+        assertTrue(error.getMessage().contains("does not exist"));
     }
 }

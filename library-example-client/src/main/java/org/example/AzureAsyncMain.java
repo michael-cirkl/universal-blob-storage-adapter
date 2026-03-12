@@ -3,11 +3,12 @@ package org.example;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.common.StorageSharedKeyCredential;
-import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
 import michaelcirkl.ubsa.Bucket;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -15,7 +16,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class AzureAsyncMain {
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) throws Exception {
         String accountName = System.getenv().getOrDefault("AZURE_ACCOUNT_NAME", "devstoreaccount1");
         String accountKey = System.getenv().getOrDefault(
                 "AZURE_ACCOUNT_KEY",
@@ -38,17 +39,16 @@ public class AzureAsyncMain {
 
         BlobStorageAsyncClient client = BlobStorageClientFactory.getAsyncClient(azureClient);
         System.out.println("Running provider: " + client.getProvider());
+        Path uploadFile = null;
 
         try {
             client.createBucket(Bucket.builder().name(bucketName).build()).get();
             System.out.println("Bucket exists: " + client.bucketExists(bucketName).get());
 
-            Blob blob = Blob.builder()
-                    .bucket(bucketName)
-                    .key(blobKey)
-                    .content("hello from Azure async client".getBytes(StandardCharsets.UTF_8))
-                    .build();
-            String etag = client.createBlob(bucketName, blob).get();
+            uploadFile = Files.createTempFile("ubsa-azure-async-", ".txt");
+            Files.writeString(uploadFile, "hello from Azure async client", StandardCharsets.UTF_8);
+
+            String etag = client.createBlob(bucketName, blobKey, uploadFile).get();
             System.out.println("Created blob etag: " + etag);
             System.out.println("Blob exists: " + client.blobExists(bucketName, blobKey).get());
 
@@ -67,6 +67,13 @@ public class AzureAsyncMain {
             }
             try {
                 client.deleteBucketIfExists(bucketName).get();
+            } catch (Exception cleanupError) {
+                System.err.println("Cleanup warning: " + cleanupError.getMessage());
+            }
+            try {
+                if (uploadFile != null) {
+                    Files.deleteIfExists(uploadFile);
+                }
             } catch (Exception cleanupError) {
                 System.err.println("Cleanup warning: " + cleanupError.getMessage());
             }

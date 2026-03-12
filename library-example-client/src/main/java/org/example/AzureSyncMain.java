@@ -3,18 +3,19 @@ package org.example;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.common.StorageSharedKeyCredential;
-import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
 import michaelcirkl.ubsa.Bucket;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class AzureSyncMain {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         String accountName = System.getenv().getOrDefault("AZURE_ACCOUNT_NAME", "devstoreaccount1");
         String accountKey = System.getenv().getOrDefault(
                 "AZURE_ACCOUNT_KEY",
@@ -37,17 +38,16 @@ public class AzureSyncMain {
 
         BlobStorageSyncClient client = BlobStorageClientFactory.getSyncClient(azureClient);
         System.out.println("Running provider: " + client.getProvider());
+        Path uploadFile = null;
 
         try {
             client.createBucket(Bucket.builder().name(bucketName).build());
             System.out.println("Bucket exists: " + client.bucketExists(bucketName));
 
-            Blob blob = Blob.builder()
-                    .bucket(bucketName)
-                    .key(blobKey)
-                    .content("hello from Azure sync client".getBytes(StandardCharsets.UTF_8))
-                    .build();
-            String etag = client.createBlob(bucketName, blob);
+            uploadFile = Files.createTempFile("ubsa-azure-sync-", ".txt");
+            Files.writeString(uploadFile, "hello from Azure sync client", StandardCharsets.UTF_8);
+
+            String etag = client.createBlob(bucketName, blobKey, uploadFile);
             System.out.println("Created blob etag: " + etag);
             System.out.println("Blob exists: " + client.blobExists(bucketName, blobKey));
 
@@ -66,6 +66,13 @@ public class AzureSyncMain {
             }
             try {
                 client.deleteBucketIfExists(bucketName);
+            } catch (Exception cleanupError) {
+                System.err.println("Cleanup warning: " + cleanupError.getMessage());
+            }
+            try {
+                if (uploadFile != null) {
+                    Files.deleteIfExists(uploadFile);
+                }
             } catch (Exception cleanupError) {
                 System.err.println("Cleanup warning: " + cleanupError.getMessage());
             }

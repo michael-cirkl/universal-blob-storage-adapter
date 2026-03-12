@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.nio.channels.WritableByteChannel;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -119,6 +120,16 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                         .thenCompose(this::toCompletableFuture)
                         .thenApply(BlobInfo::getEtag),
                 "Failed to create GCP blob gs://" + bucketName + "/" + blob.getKey()
+        );
+    }
+
+    @Override
+    public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile) {
+        FileUploadValidators.validateSourceFile(sourceFile);
+        BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
+        return wrapStorageException(
+                CompletableFuture.supplyAsync(() -> createBlobFromFile(blobInfo, sourceFile), IO_EXECUTOR),
+                "Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file"
         );
     }
 
@@ -327,6 +338,17 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
             throw new UbsaException("Failed to write streamed blob content to GCS.", new RuntimeException(e));
         }
         return writeSession.getResult();
+    }
+
+    private String createBlobFromFile(BlobInfo blobInfo, Path sourceFile) {
+        try {
+            return client.createFrom(blobInfo, sourceFile).getEtag();
+        } catch (IOException e) {
+            throw new UbsaException(
+                    "Failed to create GCP blob gs://" + blobInfo.getBucket() + "/" + blobInfo.getName() + " from file",
+                    new RuntimeException(e)
+            );
+        }
     }
 
     private <T> CompletableFuture<T> withBlobReadSession(

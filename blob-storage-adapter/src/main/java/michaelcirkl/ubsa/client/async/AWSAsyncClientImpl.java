@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -143,6 +144,20 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 client.putObject(request, AsyncRequestBody.fromBytes(content))
                         .thenApply(PutObjectResponse::eTag),
                 "Failed to create AWS blob s3://" + bucketName + "/" + blob.getKey()
+        );
+    }
+
+    @Override
+    public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile) {
+        FileUploadValidators.validateSourceFile(sourceFile);
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(blobKey)
+                .build();
+        return wrapS3Exception(
+                client.putObject(request, AsyncRequestBody.fromFile(sourceFile))
+                        .thenApply(PutObjectResponse::eTag),
+                "Failed to create AWS blob s3://" + bucketName + "/" + blobKey + " from file"
         );
     }
 

@@ -6,6 +6,7 @@ import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.models.*;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
+import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
@@ -16,6 +17,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -117,6 +119,19 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                         .map(response -> response.getValue().getETag())
                         .toFuture(),
                 "Failed to create Azure blob " + bucketName + "/" + blob.getKey()
+        );
+    }
+
+    @Override
+    public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile) {
+        FileUploadValidators.validateSourceFile(sourceFile);
+        BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
+        BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString());
+        return wrapBlobStorageException(
+                blobClient.uploadFromFileWithResponse(uploadOptions)
+                        .map(response -> response.getValue().getETag())
+                        .toFuture(),
+                "Failed to create Azure blob " + bucketName + "/" + blobKey + " from file"
         );
     }
 

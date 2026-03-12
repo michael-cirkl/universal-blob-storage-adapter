@@ -4,6 +4,7 @@ import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Set;
 
@@ -23,6 +24,8 @@ public interface BlobStorageSyncClient {
     Boolean blobExists(String bucketName, String blobKey);
 
     String createBlob(String bucketName, Blob blob);
+
+    String createBlob(String bucketName, String blobKey, Path sourceFile);
 
     String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options);
 

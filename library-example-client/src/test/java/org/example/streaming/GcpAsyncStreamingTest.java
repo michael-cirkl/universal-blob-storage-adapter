@@ -1,20 +1,26 @@
 package org.example.streaming;
 
 import com.google.api.core.ApiFutures;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.BlobWriteSession;
 import com.google.cloud.storage.Storage;
 import michaelcirkl.ubsa.client.async.GCPAsyncClientImpl;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.Flow;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +60,27 @@ class GcpAsyncStreamingTest {
 
         assertEquals("etag-gcp-async", etag);
         assertArrayEquals("gcp-async".getBytes(), channel.data());
+    }
+
+    @Test
+    void createBlobFromFileUsesStorageCreateFrom(@TempDir Path tempDir) throws Exception {
+        Storage storage = mock(Storage.class);
+        Path sourceFile = Files.writeString(tempDir.resolve("gcp-async.txt"), "gcp-async-file");
+        com.google.cloud.storage.Blob created = mock(com.google.cloud.storage.Blob.class);
+        when(created.getEtag()).thenReturn("etag-gcp-async-file");
+        when(storage.createFrom(any(BlobInfo.class), any(Path.class)))
+                .thenReturn(created);
+
+        GCPAsyncClientImpl adapter = new GCPAsyncClientImpl(storage);
+        String etag = adapter.createBlob("bucket", "blob", sourceFile).get();
+        assertEquals("etag-gcp-async-file", etag);
+
+        ArgumentCaptor<BlobInfo> blobInfoCaptor = ArgumentCaptor.forClass(BlobInfo.class);
+        ArgumentCaptor<Path> pathCaptor = ArgumentCaptor.forClass(Path.class);
+        org.mockito.Mockito.verify(storage).createFrom(blobInfoCaptor.capture(), pathCaptor.capture());
+        assertEquals("bucket", blobInfoCaptor.getValue().getBucket());
+        assertEquals("blob", blobInfoCaptor.getValue().getName());
+        assertEquals(sourceFile, pathCaptor.getValue());
     }
 
     private static final class CapturingWritableByteChannel implements WritableByteChannel {

@@ -7,11 +7,13 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.*;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
+import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
+import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 
 import java.io.ByteArrayOutputStream;
@@ -19,6 +21,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -122,6 +125,23 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         } catch (BlobStorageException error) {
             throw new UbsaException(
                     "Failed to create Azure blob " + blob.getKey() + " in container " + bucketName,
+                    error
+            );
+        }
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, Path sourceFile) {
+        FileUploadValidators.validateSourceFile(sourceFile);
+        try {
+            BlobClient blobClient = blobClient(bucketName, blobKey);
+            BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString());
+            return blobClient.uploadFromFileWithResponse(uploadOptions, null, Context.NONE)
+                    .getValue()
+                    .getETag();
+        } catch (BlobStorageException error) {
+            throw new UbsaException(
+                    "Failed to create Azure blob " + blobKey + " from file in container " + bucketName,
                     error
             );
         }
