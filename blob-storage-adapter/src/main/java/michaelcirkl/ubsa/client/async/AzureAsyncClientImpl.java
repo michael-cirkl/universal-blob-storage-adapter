@@ -357,8 +357,8 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     private URL buildSasUrl(String baseUrl, String sasToken) {
         try {
             return URI.create(baseUrl + "?" + sasToken).toURL();
-        } catch (IllegalArgumentException | MalformedURLException e) {
-            throw new IllegalStateException("Failed to build SAS URL for Azure Blob Storage.", e);
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException("Failed to build SAS URL for Azure Blob Storage.", e);
         }
     }
 

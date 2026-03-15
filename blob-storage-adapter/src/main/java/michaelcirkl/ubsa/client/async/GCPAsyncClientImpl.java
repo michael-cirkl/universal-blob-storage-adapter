@@ -321,7 +321,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                 channel.write(buffer);
             }
         } catch (IOException e) {
-            throw new UbsaException("Failed to write blob content to GCS.", new RuntimeException(e));
+            throw new UbsaException("Failed to write blob content to GCS.", e);
         }
         return writeSession.getResult();
     }
@@ -335,7 +335,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         try (WritableByteChannel channel = writeSession.open()) {
             GcpFlowPublisherChannelWriter.writeFromPublisher(content, channel, contentLength);
         } catch (IOException e) {
-            throw new UbsaException("Failed to write streamed blob content to GCS.", new RuntimeException(e));
+            throw new UbsaException("Failed to write streamed blob content to GCS.", e);
         }
         return writeSession.getResult();
     }
@@ -345,8 +345,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
             return client.createFrom(blobInfo, sourceFile).getEtag();
         } catch (IOException e) {
             throw new UbsaException(
-                    "Failed to create GCP blob gs://" + blobInfo.getBucket() + "/" + blobInfo.getName() + " from file",
-                    new RuntimeException(e)
+                    "Failed to create GCP blob gs://" + blobInfo.getBucket() + "/" + blobInfo.getName() + " from file", e
             );
         }
     }

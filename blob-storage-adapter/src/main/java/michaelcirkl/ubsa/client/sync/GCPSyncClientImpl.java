@@ -124,7 +124,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                     writeChannel.write(buffer);
                 }
             } catch (IOException e) {
-                throw new IllegalStateException("Failed to write blob content to GCS.", e);
+                throw new UbsaException("Failed to write blob content to GCS.", e);
             }
             com.google.cloud.storage.Blob created = client.get(bucketName, blob.getKey());
             if (created == null) {
@@ -142,13 +142,10 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         try {
             BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
             return client.createFrom(blobInfo, sourceFile).getEtag();
-        } catch (IOException e) {
+        } catch (IOException | StorageException e) {
             throw new UbsaException(
-                    "Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file",
-                    new RuntimeException(e)
+                    "Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file", e
             );
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file", error);
         }
     }
 
@@ -165,7 +162,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             try (WriteChannel writeChannel = client.writer(blobInfo)) {
                 ContentLengthValidators.copyInputStreamToChannel(content, writeChannel, contentLength);
             } catch (IOException e) {
-                throw new IllegalStateException("Failed to stream-write blob content to GCS.", e);
+                throw new UbsaException("Failed to stream-write blob content to GCS.", e);
             }
             com.google.cloud.storage.Blob created = client.get(bucketName, blobKey);
             if (created == null) {
@@ -286,7 +283,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                 return output.toByteArray();
             }
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to read byte range from GCS blob.", e);
+            throw new UbsaException("Failed to read byte range from GCS blob.", e);
         } catch (StorageException error) {
             throw new UbsaException(
                     "Failed to read byte range from GCP blob gs://" + bucketName + "/" + blobKey,
@@ -309,7 +306,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                     writeChannel.write(buffer);
                 }
             } catch (IOException e) {
-                throw new IllegalStateException("Failed to write blob content to GCS.", e);
+                throw new UbsaException("Failed to write blob content to GCS.", e);
             }
             return getExistingBlobEtag(bucketName, blob.getKey());
         } catch (StorageException error) {
@@ -397,7 +394,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         try {
             com.google.cloud.storage.Blob blob = client.get(bucketName, blobKey);
             if (blob == null) {
-                throw new IllegalStateException("Blob not found: gs://" + bucketName + "/" + blobKey);
+                throw new UbsaException("Blob not found: gs://" + bucketName + "/" + blobKey);
             }
             return blob;
         } catch (StorageException error) {
