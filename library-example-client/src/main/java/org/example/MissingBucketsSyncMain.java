@@ -1,18 +1,24 @@
 package org.example;
 
+import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.google.cloud.NoCredentials;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageException;
 import com.google.cloud.storage.StorageOptions;
-import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.BlobStorageClientFactory;
-import michaelcirkl.ubsa.BlobStorageSyncClient;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +26,7 @@ import java.util.UUID;
 
 public class MissingBucketsSyncMain {
     public static void main(String[] args) {
+        // Uncomment exactly one provider example at a time.
         runAwsMissingBucketScenario();
         //runGcpMissingBucketScenario();
         //runAzureMissingBucketScenario();
@@ -41,13 +48,27 @@ public class MissingBucketsSyncMain {
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKey, secretKey)))
                 .build()) {
-            BlobStorageSyncClient client = BlobStorageClientFactory.getSyncClient(s3);
-            Blob blob = buildBlob(bucketName, blobKey);
+            try {
+            s3.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(blobKey)
+                            .build(),
+                    RequestBody.fromString("expected-to-fail", StandardCharsets.UTF_8)
+            );
 
-            System.out.println("AWS missing bucket test with: " + bucketName);
-            System.out.println("bucketExists -> " + client.bucketExists(bucketName));
-            client.createBlob(bucketName, blob);
-            client.getBlob(bucketName, blobKey);
+
+                ResponseBytes<?> response = s3.getObjectAsBytes(GetObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(blobKey)
+                        .build());
+                System.out.println(response.asUtf8String());
+            } catch (S3Exception e) {
+                System.out.println(e.awsErrorDetails().errorCode());
+                throw e;
+            }
+
+
         }
     }
 
@@ -70,13 +91,17 @@ public class MissingBucketsSyncMain {
         }
         Storage gcpClient = optionsBuilder.build().getService();
 
-        BlobStorageSyncClient client = BlobStorageClientFactory.getSyncClient(gcpClient);
-        Blob blob = buildBlob(bucketName, blobKey);
+        try {
+            gcpClient.create(
+                    com.google.cloud.storage.BlobInfo.newBuilder(BlobId.of(bucketName, blobKey)).build(),
+                    "expected-to-fail".getBytes(StandardCharsets.UTF_8)
+            );
+            gcpClient.get(BlobId.of(bucketName, blobKey)).getContent();
+        } catch (StorageException e) {
+            System.out.println("Reason in exception:" + e.getReason());
+            throw e;
+        }
 
-        System.out.println("GCP missing bucket test with: " + bucketName);
-        System.out.println("bucketExists -> " + client.bucketExists(bucketName));
-        client.createBlob(bucketName, blob);
-        client.getBlob(bucketName, blobKey);
     }
 
     private static void runAzureMissingBucketScenario() {
@@ -99,21 +124,17 @@ public class MissingBucketsSyncMain {
                 .credential(credential)
                 .buildClient();
 
-        BlobStorageSyncClient client = BlobStorageClientFactory.getSyncClient(azureClient);
-        Blob blob = buildBlob(bucketName, blobKey);
+        BlobClient blobClient = azureClient
+                .getBlobContainerClient(bucketName)
+                .getBlobClient(blobKey);
 
-        System.out.println("Azure missing container test with: " + bucketName);
-        System.out.println("bucketExists -> " + client.bucketExists(bucketName));
-        client.createBlob(bucketName, blob);
-        client.getBlob(bucketName, blobKey);
-    }
+        try {
+            blobClient.upload(com.azure.core.util.BinaryData.fromString("expected-to-fail"));
+            System.out.println(blobClient.downloadContent().toString());
+        } catch (BlobStorageException e) {
+            System.out.println(e.getErrorCode().toString());
+        }
 
-    private static Blob buildBlob(String bucketName, String blobKey) {
-        return Blob.builder()
-                .bucket(bucketName)
-                .key(blobKey)
-                .content("expected-to-fail".getBytes(StandardCharsets.UTF_8))
-                .build();
     }
 
     private static String randomSuffix() {
