@@ -192,7 +192,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                                 buckets.add(Bucket.builder()
                                         .name(item.getName())
                                         .publicURI(toUri(client.getBlobContainerAsyncClient(item.getName()).getBlobContainerUrl()))
-                                        .creationDate(toLocalDateTime(lastModified))
+                                        .creationDate(null) // Not supported by azure
                                         .lastModified(toLocalDateTime(lastModified))
                                         .build());
                             });

@@ -423,7 +423,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             String expectedPrefix = "/" + PATH_STYLE_PROBE_BUCKET + "/";
             return probeUrl.getPath() != null && probeUrl.getPath().startsWith(expectedPrefix);
         } catch (RuntimeException ignored) {
-            // Fallback to default virtual-host style if probing fails.
+            // If probe fails, it is virtual host style instead of path style
             return false;
         }
     }

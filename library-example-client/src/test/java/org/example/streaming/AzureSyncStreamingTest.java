@@ -5,7 +5,6 @@ import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.models.BlobProperties;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.storage.blob.options.BlobUploadFromFileOptions;
@@ -55,11 +54,14 @@ class AzureSyncStreamingTest {
         BlobServiceClient serviceClient = mock(BlobServiceClient.class);
         BlobContainerClient containerClient = mock(BlobContainerClient.class);
         BlobClient blobClient = mock(BlobClient.class);
-        BlobProperties properties = mock(BlobProperties.class);
+        Response<BlockBlobItem> response = mock(Response.class);
+        BlockBlobItem item = mock(BlockBlobItem.class);
         when(serviceClient.getBlobContainerClient("bucket")).thenReturn(containerClient);
         when(containerClient.getBlobClient("blob")).thenReturn(blobClient);
-        when(blobClient.getProperties()).thenReturn(properties);
-        when(properties.getETag()).thenReturn("etag-azure-sync");
+        when(blobClient.uploadWithResponse(any(BlobParallelUploadOptions.class), eq(null), eq(Context.NONE)))
+                .thenReturn(response);
+        when(response.getValue()).thenReturn(item);
+        when(item.getETag()).thenReturn("etag-azure-sync");
 
         AzureSyncClientImpl adapter = new AzureSyncClientImpl(serviceClient);
         byte[] data = "azure-stream-content".getBytes();
@@ -81,6 +83,7 @@ class AzureSyncStreamingTest {
         assertEquals("v", uploadOptions.getMetadata().get("k"));
         verify(blobClient, never()).setHttpHeaders(any());
         verify(blobClient, never()).setMetadata(any());
+        verify(blobClient, never()).getProperties();
     }
 
     @Test

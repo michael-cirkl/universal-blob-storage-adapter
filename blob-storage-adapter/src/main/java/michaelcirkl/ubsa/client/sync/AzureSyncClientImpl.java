@@ -11,6 +11,7 @@ import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.exception.AzureExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class AzureSyncClientImpl implements BlobStorageSyncClient {
+    private final AzureExceptionHandler exceptionHandler = new AzureExceptionHandler();
     private final BlobServiceClient client;
 
     public AzureSyncClientImpl(BlobServiceClient client) {
@@ -52,16 +54,12 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public Boolean bucketExists(String bucketName) {
-        try {
-            return client.getBlobContainerClient(bucketName).exists();
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to check whether Azure container exists: " + bucketName, error);
-        }
+        return exceptionHandler.handle(() -> client.getBlobContainerClient(bucketName).exists());
     }
 
     @Override
     public Blob getBlob(String bucketName, String blobKey) {
-        try {
+        return exceptionHandler.handle(() -> {
             BlobClient blobClient = blobClient(bucketName, blobKey);
             BlobProperties properties = blobClient.getProperties();
             BinaryData content = blobClient.downloadContent();
@@ -78,73 +76,48 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
                     .publicURI(toUri(blobClient.getBlobUrl()))
                     .expires(toLocalDateTime(properties.getExpiresOn()))
                     .build();
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to get Azure blob " + blobKey + " from container " + bucketName, error);
-        }
+        });
     }
 
     @Override
     public InputStream openBlobStream(String bucketName, String blobKey) {
-        try {
-            return blobClient(bucketName, blobKey).openInputStream();
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to open Azure blob stream " + bucketName + "/" + blobKey, error);
-        }
+        return exceptionHandler.handle(() -> blobClient(bucketName, blobKey).openInputStream());
     }
 
     @Override
     public Void deleteBucket(String bucketName) {
-        try {
+        return exceptionHandler.handle(() -> {
             client.getBlobContainerClient(bucketName).delete();
             return null;
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to delete Azure container: " + bucketName, error);
-        }
+        });
     }
 
     @Override
     public Boolean blobExists(String bucketName, String blobKey) {
-        try {
-            return blobClient(bucketName, blobKey).exists();
-        } catch (BlobStorageException error) {
-            throw new UbsaException(
-                    "Failed to check whether Azure blob exists: " + bucketName + "/" + blobKey,
-                    error
-            );
-        }
+        return exceptionHandler.handle(() -> blobClient(bucketName, blobKey).exists());
     }
 
     @Override
     public String createBlob(String bucketName, Blob blob) {
-        try {
+        return exceptionHandler.handle(() -> {
             BlobClient blobClient = blobClient(bucketName, blob.getKey());
             BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob);
             return blobClient.uploadWithResponse(uploadOptions, null, null)
                     .getValue()
                     .getETag();
-        } catch (BlobStorageException error) {
-            throw new UbsaException(
-                    "Failed to create Azure blob " + blob.getKey() + " in container " + bucketName,
-                    error
-            );
-        }
+        });
     }
 
     @Override
     public String createBlob(String bucketName, String blobKey, Path sourceFile) {
         FileUploadValidators.validateSourceFile(sourceFile);
-        try {
+        return exceptionHandler.handle(() -> {
             BlobClient blobClient = blobClient(bucketName, blobKey);
             BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString());
             return blobClient.uploadFromFileWithResponse(uploadOptions, null, Context.NONE)
                     .getValue()
                     .getETag();
-        } catch (BlobStorageException error) {
-            throw new UbsaException(
-                    "Failed to create Azure blob " + blobKey + " from file in container " + bucketName,
-                    error
-            );
-        }
+        });
     }
 
     @Override
@@ -153,73 +126,57 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         if (content == null) {
             throw new IllegalArgumentException("Content stream must not be null.");
         }
-        try {
+        return exceptionHandler.handle(() -> {
             BlobClient blobClient = blobClient(bucketName, blobKey);
             BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
             Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
             BlobParallelUploadOptions uploadOptions = new BlobParallelUploadOptions(BinaryData.fromStream(content, contentLength))
                     .setHeaders(headers)
                     .setMetadata(metadata);
-            blobClient.uploadWithResponse(uploadOptions, null, Context.NONE);
-            return blobClient.getProperties().getETag();
-        } catch (BlobStorageException error) {
-            throw new UbsaException(
-                    "Failed to stream-create Azure blob " + blobKey + " in container " + bucketName,
-                    error
-            );
-        }
+            return blobClient.uploadWithResponse(uploadOptions, null, Context.NONE)
+                    .getValue()
+                    .getETag();
+        });
     }
 
     @Override
     public Void deleteBlob(String bucketName, String blobKey) {
-        try {
+        return exceptionHandler.handle(() -> {
             blobClient(bucketName, blobKey).deleteIfExists();
             return null;
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to delete Azure blob " + bucketName + "/" + blobKey, error);
-        }
+        });
     }
 
     @Override
     public String copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
-        try {
+        return exceptionHandler.handle(() -> {
             BlobClient sourceBlobClient = blobClient(sourceBucketName, sourceBlobKey);
             BlobClient destinationBlobClient = blobClient(destinationBucketName, destinationBlobKey);
             destinationBlobClient.copyFromUrl(sourceBlobClient.getBlobUrl());
             return destinationBlobClient.getProperties().getETag();
-        } catch (BlobStorageException error) {
-            throw new UbsaException(
-                    "Failed to copy Azure blob from " + sourceBucketName + "/" + sourceBlobKey
-                            + " to " + destinationBucketName + "/" + destinationBlobKey,
-                    error
-            );
-        }
+        });
     }
 
     @Override
     public Set<Bucket> listAllBuckets() {
-        try {
+        return exceptionHandler.handle(() -> {
             Set<Bucket> buckets = new HashSet<>();
             client.listBlobContainers().forEach(item -> {
-                OffsetDateTime lastModified = item.getProperties() == null
-                        ? null
-                        : item.getProperties().getLastModified();
+                OffsetDateTime lastModified = item.getProperties() == null ? null : item.getProperties().getLastModified();
                 buckets.add(Bucket.builder()
                         .name(item.getName())
                         .publicURI(toUri(client.getBlobContainerClient(item.getName()).getBlobContainerUrl()))
-                        .creationDate(toLocalDateTime(lastModified))
                         .lastModified(toLocalDateTime(lastModified))
+                        .creationDate(null) // Not supported by azure
                         .build());
             });
             return buckets;
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to list Azure containers", error);
-        }
+        });
     }
 
     @Override
     public Set<Blob> listBlobsByPrefix(String bucketName, String prefix) {
-        try {
+        return exceptionHandler.handle(() -> {
             BlobContainerClient containerClient = client.getBlobContainerClient(bucketName);
             ListBlobsOptions options = new ListBlobsOptions();
             if (prefix != null && !prefix.isBlank()) {
@@ -227,19 +184,15 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
             }
 
             return mapBlobsFromList(bucketName, containerClient, containerClient.listBlobs(options, null));
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to list Azure blobs in container " + bucketName, error);
-        }
+        });
     }
 
     @Override
     public Void createBucket(Bucket bucket) {
-        try {
+        return exceptionHandler.handle(() -> {
             client.createBlobContainer(bucket.getName());
             return null;
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to create Azure container " + bucket.getName(), error);
-        }
+        });
     }
 
     @Override
@@ -249,49 +202,40 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public Void deleteBucketIfExists(String bucketName) {
-        try {
+        return exceptionHandler.handle(() -> {
             client.getBlobContainerClient(bucketName).deleteIfExists();
             return null;
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to delete Azure container if exists: " + bucketName, error);
-        }
+        });
     }
 
     @Override
     public byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
         validateRange(startInclusive, endInclusive);
-        try {
+        return exceptionHandler.handle(() -> {
             BlobRange blobRange = new BlobRange(startInclusive, endInclusive - startInclusive + 1);
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             blobClient(bucketName, blobKey)
                     .downloadStreamWithResponse(output, blobRange, null, null, false, null, null);
             return output.toByteArray();
-        } catch (BlobStorageException error) {
-            throw new UbsaException(
-                    "Failed to read byte range from Azure blob " + bucketName + "/" + blobKey,
-                    error
-            );
-        }
+        });
     }
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
-        validateExpiry(expiry);
-        try {
+        return exceptionHandler.handle(() -> {
+            validateExpiry(expiry);
             var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
             BlobSasPermission permission = new BlobSasPermission().setReadPermission(true);
             BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
             String sas = blobClient.generateSas(values);
             return buildSasUrl(blobClient.getBlobUrl(), sas);
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to generate Azure GET URL for " + bucket + "/" + objectKey, error);
-        }
+        });
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        validateExpiry(expiry);
-        try {
+        return exceptionHandler.handle(() -> {
+            validateExpiry(expiry);
             var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
             BlobSasPermission permission = new BlobSasPermission()
                     .setCreatePermission(true)
@@ -299,9 +243,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
             BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
             String sas = blobClient.generateSas(values);
             return buildSasUrl(blobClient.getBlobUrl(), sas);
-        } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to generate Azure PUT URL for " + bucket + "/" + objectKey, error);
-        }
+        });
     }
 
     private BlobClient blobClient(String bucketName, String blobKey) {
@@ -356,18 +298,6 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
-    }
-
-    private boolean isPreconditionConflict(BlobStorageException error) {
-        int statusCode = error.getStatusCode();
-        if (statusCode == 412) {
-            return true;
-        }
-        BlobErrorCode errorCode = error.getErrorCode();
-        return errorCode == BlobErrorCode.BLOB_ALREADY_EXISTS
-                || errorCode == BlobErrorCode.RESOURCE_ALREADY_EXISTS
-                || errorCode == BlobErrorCode.CONDITION_NOT_MET
-                || errorCode == BlobErrorCode.TARGET_CONDITION_NOT_MET;
     }
 
 }
