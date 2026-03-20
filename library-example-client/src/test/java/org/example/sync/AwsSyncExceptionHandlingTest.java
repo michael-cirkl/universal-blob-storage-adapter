@@ -1,6 +1,6 @@
 package org.example.sync;
 
-import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.sync.AWSSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.s3.S3Client;

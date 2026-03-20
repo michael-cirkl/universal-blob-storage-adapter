@@ -1,7 +1,6 @@
 package michaelcirkl.ubsa.client.exception;
 
 import com.azure.storage.blob.models.BlobStorageException;
-import michaelcirkl.ubsa.UbsaException;
 
 import java.util.function.Supplier;
 

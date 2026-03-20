@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Set;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,10 +45,10 @@ class AzureSyncListingTest {
         when(containerClient.getBlobContainerUrl()).thenReturn("https://example.test/bucket");
 
         AzureSyncClientImpl adapter = new AzureSyncClientImpl(serviceClient);
-        Set<Bucket> buckets = adapter.listAllBuckets();
+        List<Bucket> buckets = adapter.listAllBuckets();
 
         assertEquals(1, buckets.size());
-        Bucket bucket = buckets.iterator().next();
+        Bucket bucket = buckets.get(0);
         assertEquals("bucket", bucket.getName());
         assertNull(bucket.getCreationDate());
         assertEquals(lastModified.toLocalDateTime(), bucket.getLastModified());

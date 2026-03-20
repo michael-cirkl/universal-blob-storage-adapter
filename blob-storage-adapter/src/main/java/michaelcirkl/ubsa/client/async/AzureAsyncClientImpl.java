@@ -10,6 +10,7 @@ import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.streaming.*;
 import reactor.core.publisher.Flux;
 
@@ -22,12 +23,11 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
-import java.util.function.Function;
 
 public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     private final BlobServiceAsyncClient client;
@@ -179,12 +179,12 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Bucket>> listAllBuckets() {
+    public CompletableFuture<List<Bucket>> listAllBuckets() {
         return wrapBlobStorageException(
                 client.listBlobContainers()
                         .collectList()
                         .map(containerItems -> {
-                            Set<Bucket> buckets = new HashSet<>();
+                            List<Bucket> buckets = new ArrayList<>();
                             containerItems.forEach(item -> {
                                 OffsetDateTime lastModified = item.getProperties() == null
                                         ? null
@@ -204,7 +204,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
+    public CompletableFuture<List<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
         BlobContainerAsyncClient containerClient = client.getBlobContainerAsyncClient(bucketName);
         ListBlobsOptions options = new ListBlobsOptions();
         if (prefix != null && !prefix.isBlank()) {
@@ -231,7 +231,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Blob>> getAllBlobsInBucket(String bucketName) {
+    public CompletableFuture<List<Blob>> getAllBlobsInBucket(String bucketName) {
         return listBlobsByPrefix(bucketName, null);
     }
 
@@ -298,8 +298,8 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         return client.getBlobContainerAsyncClient(bucketName).getBlobAsyncClient(blobKey);
     }
 
-    private Set<Blob> mapBlobsFromList(String bucketName, BlobContainerAsyncClient containerClient, java.util.List<BlobItem> blobItems) {
-        Set<Blob> blobs = new HashSet<>();
+    private List<Blob> mapBlobsFromList(String bucketName, BlobContainerAsyncClient containerClient, java.util.List<BlobItem> blobItems) {
+        List<Blob> blobs = new ArrayList<>();
         blobItems.forEach(item -> {
             BlobItemProperties properties = item.getProperties();
             long size = properties != null && properties.getContentLength() != null
@@ -346,18 +346,6 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
-    }
-
-    private boolean isPreconditionConflict(BlobStorageException error) {
-        int statusCode = error.getStatusCode();
-        if (statusCode == 412) {
-            return true;
-        }
-        BlobErrorCode errorCode = error.getErrorCode();
-        return errorCode == BlobErrorCode.BLOB_ALREADY_EXISTS
-                || errorCode == BlobErrorCode.RESOURCE_ALREADY_EXISTS
-                || errorCode == BlobErrorCode.CONDITION_NOT_MET
-                || errorCode == BlobErrorCode.TARGET_CONDITION_NOT_MET;
     }
 
     private <T> CompletableFuture<T> wrapBlobStorageException(CompletableFuture<T> future, String message) {

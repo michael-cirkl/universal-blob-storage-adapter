@@ -12,6 +12,7 @@ import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.streaming.*;
 
 import java.io.IOException;
@@ -25,8 +26,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Function;
 
@@ -172,10 +172,10 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Bucket>> listAllBuckets() {
+    public CompletableFuture<List<Bucket>> listAllBuckets() {
         return wrapStorageException(
                 CompletableFuture.supplyAsync(() -> {
-                    Set<Bucket> buckets = new HashSet<>();
+                    List<Bucket> buckets = new ArrayList<>();
                     Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(1000));
                     bucketPage.iterateAll().forEach(gcsBucket -> {
                         LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
@@ -193,7 +193,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
+    public CompletableFuture<List<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
         return wrapStorageException(
                 CompletableFuture.supplyAsync(() -> {
                     Page<com.google.cloud.storage.Blob> blobPage = (prefix != null && !prefix.isBlank())
@@ -214,7 +214,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Blob>> getAllBlobsInBucket(String bucketName) {
+    public CompletableFuture<List<Blob>> getAllBlobsInBucket(String bucketName) {
         return listBlobsByPrefix(bucketName, null);
     }
 
@@ -360,8 +360,8 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         return blobBuilder.build();
     }
 
-    private Set<Blob> mapBlobsFromPage(String bucketName, Page<com.google.cloud.storage.Blob> blobPage) {
-        Set<Blob> blobs = new HashSet<>();
+    private List<Blob> mapBlobsFromPage(String bucketName, Page<com.google.cloud.storage.Blob> blobPage) {
+        List<Blob> blobs = new ArrayList<>();
         blobPage.iterateAll().forEach(gcsBlob -> blobs.add(Blob.builder()
                 .bucket(bucketName)
                 .key(gcsBlob.getName())
@@ -405,19 +405,6 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         } catch (IOException ignored) {
 
         }
-    }
-
-    private boolean isPreconditionFailed(Throwable error) {
-        return error instanceof StorageException storageException
-                && storageException.getCode() == 412;
-    }
-
-    private String getExistingBlobEtag(String bucketName, String blobKey) {
-        com.google.cloud.storage.Blob existing = client.get(bucketName, blobKey);
-        if (existing == null) {
-            throw new IllegalStateException("Blob not found after conditional create attempt: gs://" + bucketName + "/" + blobKey);
-        }
-        return existing.getEtag();
     }
 
     private <T> CompletableFuture<T> wrapStorageException(CompletableFuture<T> future, String message) {

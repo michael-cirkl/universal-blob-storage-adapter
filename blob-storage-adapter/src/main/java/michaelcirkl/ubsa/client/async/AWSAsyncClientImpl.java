@@ -3,6 +3,7 @@ package michaelcirkl.ubsa.client.async;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.streaming.*;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
@@ -24,12 +25,11 @@ import java.nio.file.Path;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
-import java.util.function.Function;
 
 public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
@@ -213,7 +213,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Bucket>> listAllBuckets() {
+    public CompletableFuture<List<Bucket>> listAllBuckets() {
         return wrapS3Exception(
                 client.listBuckets().thenApply(this::mapBuckets),
                 "Failed to list AWS buckets"
@@ -221,15 +221,14 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
+    public CompletableFuture<List<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
         ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
                 .bucket(bucketName);
         if (prefix != null && !prefix.isBlank()) {
             requestBuilder.prefix(prefix);
         }
         return wrapS3Exception(
-                client.listObjectsV2(requestBuilder.build())
-                        .thenApply(response -> mapBlobsFromList(bucketName, response)),
+                listAllBlobs(bucketName, requestBuilder.build()),
                 "Failed to list AWS blobs in bucket " + bucketName
         );
     }
@@ -246,15 +245,8 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Set<Blob>> getAllBlobsInBucket(String bucketName) {
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
-                .bucket(bucketName)
-                .build();
-        return wrapS3Exception(
-                client.listObjectsV2(request)
-                        .thenApply(response -> mapBlobsFromList(bucketName, response)),
-                "Failed to list all AWS blobs in bucket " + bucketName
-        );
+    public CompletableFuture<List<Blob>> getAllBlobsInBucket(String bucketName) {
+        return listBlobsByPrefix(bucketName, null);
     }
 
     @Override
@@ -330,8 +322,8 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         }
     }
 
-    private Set<Bucket> mapBuckets(ListBucketsResponse response) {
-        Set<Bucket> buckets = new HashSet<>();
+    private List<Bucket> mapBuckets(ListBucketsResponse response) {
+        List<Bucket> buckets = new ArrayList<>();
         response.buckets().forEach(bucket -> {
             LocalDateTime creation = toLocalDateTime(bucket.creationDate());
             buckets.add(Bucket.builder()
@@ -344,8 +336,8 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         return buckets;
     }
 
-    private Set<Blob> mapBlobsFromList(String bucketName, ListObjectsV2Response response) {
-        Set<Blob> blobs = new HashSet<>();
+    private List<Blob> mapBlobsFromList(String bucketName, ListObjectsV2Response response) {
+        List<Blob> blobs = new ArrayList<>();
         response.contents().forEach(object -> {
             blobs.add(Blob.builder()
                     .bucket(bucketName)
@@ -357,6 +349,25 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                     .build());
         });
         return blobs;
+    }
+
+    private CompletableFuture<List<Blob>> listAllBlobs(String bucketName, ListObjectsV2Request request) {
+        return client.listObjectsV2(request)
+                .thenCompose(response -> {
+                    List<Blob> blobs = mapBlobsFromList(bucketName, response);
+                    if (!response.isTruncated()) {
+                        return CompletableFuture.completedFuture(blobs);
+                    }
+
+                    ListObjectsV2Request nextRequest = request.toBuilder()
+                            .continuationToken(response.nextContinuationToken())
+                            .build();
+                    return listAllBlobs(bucketName, nextRequest)
+                            .thenApply(nextPageBlobs -> {
+                                blobs.addAll(nextPageBlobs);
+                                return blobs;
+                            });
+                });
     }
 
     private Blob buildBlobFromGetObject(String bucketName, String blobKey, ResponseBytes<GetObjectResponse> responseBytes) {

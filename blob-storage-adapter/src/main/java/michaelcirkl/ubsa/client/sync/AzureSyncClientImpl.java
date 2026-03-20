@@ -27,9 +27,9 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class AzureSyncClientImpl implements BlobStorageSyncClient {
     private final AzureExceptionHandler exceptionHandler = new AzureExceptionHandler();
@@ -158,9 +158,9 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Set<Bucket> listAllBuckets() {
+    public List<Bucket> listAllBuckets() {
         return exceptionHandler.handle(() -> {
-            Set<Bucket> buckets = new HashSet<>();
+            List<Bucket> buckets = new ArrayList<>();
             client.listBlobContainers().forEach(item -> {
                 OffsetDateTime lastModified = item.getProperties() == null ? null : item.getProperties().getLastModified();
                 buckets.add(Bucket.builder()
@@ -175,7 +175,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Set<Blob> listBlobsByPrefix(String bucketName, String prefix) {
+    public List<Blob> listBlobsByPrefix(String bucketName, String prefix) {
         return exceptionHandler.handle(() -> {
             BlobContainerClient containerClient = client.getBlobContainerClient(bucketName);
             ListBlobsOptions options = new ListBlobsOptions();
@@ -196,7 +196,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Set<Blob> getAllBlobsInBucket(String bucketName) {
+    public List<Blob> getAllBlobsInBucket(String bucketName) {
         return listBlobsByPrefix(bucketName, null);
     }
 
@@ -250,8 +250,8 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         return client.getBlobContainerClient(bucketName).getBlobClient(blobKey);
     }
 
-    private Set<Blob> mapBlobsFromList(String bucketName, BlobContainerClient containerClient, Iterable<BlobItem> blobItems) {
-        Set<Blob> blobs = new HashSet<>();
+    private List<Blob> mapBlobsFromList(String bucketName, BlobContainerClient containerClient, Iterable<BlobItem> blobItems) {
+        List<Blob> blobs = new ArrayList<>();
         blobItems.forEach(item -> {
             BlobItemProperties properties = item.getProperties();
             long size = properties != null && properties.getContentLength() != null

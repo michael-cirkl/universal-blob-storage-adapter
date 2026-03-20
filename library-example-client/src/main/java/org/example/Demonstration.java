@@ -3,7 +3,7 @@ package org.example;
 import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
-import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;

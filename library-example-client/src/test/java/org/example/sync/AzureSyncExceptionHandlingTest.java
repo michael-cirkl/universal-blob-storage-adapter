@@ -4,7 +4,7 @@ import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobStorageException;
-import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.sync.AzureSyncClientImpl;
 import org.junit.jupiter.api.Test;
 

@@ -1,6 +1,6 @@
 package michaelcirkl.ubsa.client.streaming;
 
-import michaelcirkl.ubsa.UbsaException;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;

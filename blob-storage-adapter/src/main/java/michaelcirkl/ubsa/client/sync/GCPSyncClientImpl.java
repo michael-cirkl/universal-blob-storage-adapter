@@ -10,6 +10,7 @@ import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
@@ -28,8 +29,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class GCPSyncClientImpl implements BlobStorageSyncClient {
@@ -204,9 +204,9 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Set<Bucket> listAllBuckets() {
+    public List<Bucket> listAllBuckets() {
         try {
-            Set<Bucket> buckets = new HashSet<>();
+            List<Bucket> buckets = new ArrayList<>();
             Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(1000));
             bucketPage.iterateAll().forEach(gcsBucket -> {
                 LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
@@ -224,7 +224,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Set<Blob> listBlobsByPrefix(String bucketName, String prefix) {
+    public List<Blob> listBlobsByPrefix(String bucketName, String prefix) {
         try {
             Page<com.google.cloud.storage.Blob> blobPage = (prefix != null && !prefix.isBlank())
                     ? client.list(bucketName, BlobListOption.prefix(prefix))
@@ -246,7 +246,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Set<Blob> getAllBlobsInBucket(String bucketName) {
+    public List<Blob> getAllBlobsInBucket(String bucketName) {
         return listBlobsByPrefix(bucketName, null);
     }
 
@@ -349,8 +349,8 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
-    private Set<Blob> mapBlobsFromPage(String bucketName, Page<com.google.cloud.storage.Blob> blobPage) {
-        Set<Blob> blobs = new HashSet<>();
+    private List<Blob> mapBlobsFromPage(String bucketName, Page<com.google.cloud.storage.Blob> blobPage) {
+        List<Blob> blobs = new ArrayList<>();
         blobPage.iterateAll().forEach(gcsBlob -> blobs.add(Blob.builder()
                 .bucket(bucketName)
                 .key(gcsBlob.getName())

@@ -6,7 +6,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 
@@ -40,13 +40,13 @@ public interface BlobStorageAsyncClient {
             String destinationBlobKey
     );
 
-    CompletableFuture<Set<Bucket>> listAllBuckets();
+    CompletableFuture<List<Bucket>> listAllBuckets();
 
-    CompletableFuture<Set<Blob>> listBlobsByPrefix(String bucketName, String prefix);
+    CompletableFuture<List<Blob>> listBlobsByPrefix(String bucketName, String prefix);
 
     CompletableFuture<Void> createBucket(Bucket bucket);
 
-    CompletableFuture<Set<Blob>> getAllBlobsInBucket(String bucketName);
+    CompletableFuture<List<Blob>> getAllBlobsInBucket(String bucketName);
 
     CompletableFuture<Void> deleteBucketIfExists(String bucketName);
 

@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa;
+package michaelcirkl.ubsa.client.exception;
 
 public class UbsaException extends RuntimeException {
     private int statusCode; //make final later

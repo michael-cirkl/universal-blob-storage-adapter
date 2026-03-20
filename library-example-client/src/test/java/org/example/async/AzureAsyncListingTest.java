@@ -13,7 +13,6 @@ import reactor.core.publisher.Mono;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -40,10 +39,10 @@ class AzureAsyncListingTest {
         when(containerClient.getBlobContainerUrl()).thenReturn("https://example.test/bucket");
 
         AzureAsyncClientImpl adapter = new AzureAsyncClientImpl(serviceClient);
-        Set<Bucket> buckets = adapter.listAllBuckets().get();
+        List<Bucket> buckets = adapter.listAllBuckets().get();
 
         assertEquals(1, buckets.size());
-        Bucket bucket = buckets.iterator().next();
+        Bucket bucket = buckets.get(0);
         assertEquals("bucket", bucket.getName());
         assertNull(bucket.getCreationDate());
         assertEquals(lastModified.toLocalDateTime(), bucket.getLastModified());

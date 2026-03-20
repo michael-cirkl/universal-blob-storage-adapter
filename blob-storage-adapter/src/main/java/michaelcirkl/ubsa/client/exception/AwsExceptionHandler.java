@@ -1,6 +1,5 @@
 package michaelcirkl.ubsa.client.exception;
 
-import michaelcirkl.ubsa.UbsaException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.util.function.Supplier;

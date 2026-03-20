@@ -6,7 +6,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Set;
+import java.util.List;
 
 public interface BlobStorageSyncClient {
     Provider getProvider();
@@ -38,13 +38,13 @@ public interface BlobStorageSyncClient {
             String destinationBlobKey
     );
 
-    Set<Bucket> listAllBuckets();
+    List<Bucket> listAllBuckets();
 
-    Set<Blob> listBlobsByPrefix(String bucketName, String prefix);
+    List<Blob> listBlobsByPrefix(String bucketName, String prefix);
 
     Void createBucket(Bucket bucket);
 
-    Set<Blob> getAllBlobsInBucket(String bucketName);
+    List<Blob> getAllBlobsInBucket(String bucketName);
 
     Void deleteBucketIfExists(String bucketName);
 

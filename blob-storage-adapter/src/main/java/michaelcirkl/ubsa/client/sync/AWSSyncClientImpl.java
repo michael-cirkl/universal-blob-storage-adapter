@@ -26,8 +26,8 @@ import java.nio.file.Path;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AWSSyncClientImpl implements BlobStorageSyncClient {
     private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
@@ -195,12 +195,12 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Set<Bucket> listAllBuckets() {
+    public List<Bucket> listAllBuckets() {
         return exceptionHandler.handle(() -> mapBuckets(client.listBuckets()));
     }
 
     @Override
-    public Set<Blob> listBlobsByPrefix(String bucketName, String prefix) {
+    public List<Blob> listBlobsByPrefix(String bucketName, String prefix) {
         return exceptionHandler.handle(() -> {
             ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
                     .bucket(bucketName);
@@ -223,7 +223,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Set<Blob> getAllBlobsInBucket(String bucketName) {
+    public List<Blob> getAllBlobsInBucket(String bucketName) {
         return exceptionHandler.handle(() -> {
             ListObjectsV2Request request = ListObjectsV2Request.builder()
                     .bucket(bucketName)
@@ -305,8 +305,8 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         });
     }
 
-    private Set<Bucket> mapBuckets(ListBucketsResponse response) {
-        Set<Bucket> buckets = new HashSet<>();
+    private List<Bucket> mapBuckets(ListBucketsResponse response) {
+        List<Bucket> buckets = new ArrayList<>();
         response.buckets().forEach(bucket -> {
             LocalDateTime creation = toLocalDateTime(bucket.creationDate());
             buckets.add(Bucket.builder()
@@ -319,8 +319,8 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         return buckets;
     }
 
-    private Set<Blob> mapBlobsFromList(String bucketName, ListObjectsV2Response response) {
-        Set<Blob> blobs = new HashSet<>();
+    private List<Blob> mapBlobsFromList(String bucketName, ListObjectsV2Response response) {
+        List<Blob> blobs = new ArrayList<>();
         response.contents().forEach(object -> {
             blobs.add(Blob.builder()
                     .bucket(bucketName)
@@ -334,8 +334,8 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         return blobs;
     }
 
-    private Set<Blob> listAllBlobs(String bucketName, ListObjectsV2Request initialRequest) {
-        Set<Blob> blobs = new HashSet<>();
+    private List<Blob> listAllBlobs(String bucketName, ListObjectsV2Request initialRequest) {
+        List<Blob> blobs = new ArrayList<>();
         ListObjectsV2Request request = initialRequest;
 
         while (request != null) {
