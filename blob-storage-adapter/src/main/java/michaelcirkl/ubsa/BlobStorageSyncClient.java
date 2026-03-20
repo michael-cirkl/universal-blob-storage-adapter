@@ -50,8 +50,6 @@ public interface BlobStorageSyncClient {
 
     byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive);
 
-    String createBlobIfNotExists(String bucketName, Blob blob);
-
     URL generateGetUrl(String bucket, String objectKey, Duration expiry);
 
     URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);

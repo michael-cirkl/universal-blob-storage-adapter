@@ -275,34 +275,6 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public String createBlobIfNotExists(String bucketName, Blob blob) {
-        BlobClient blobClient = blobClient(bucketName, blob.getKey());
-        try {
-            BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob)
-                    .setRequestConditions(new BlobRequestConditions().setIfNoneMatch("*"));
-            return blobClient.uploadWithResponse(uploadOptions, null, null)
-                    .getValue()
-                    .getETag();
-        } catch (BlobStorageException error) {
-            if (isPreconditionConflict(error)) {
-                try {
-                    return blobClient.getProperties().getETag();
-                } catch (BlobStorageException readError) {
-                    throw new UbsaException(
-                            "Failed to read existing Azure blob after conditional create conflict: "
-                                    + bucketName + "/" + blob.getKey(),
-                            readError
-                    );
-                }
-            }
-            throw new UbsaException(
-                    "Failed to create Azure blob if not exists: " + bucketName + "/" + blob.getKey(),
-                    error
-            );
-        }
-    }
-
-    @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
         try {

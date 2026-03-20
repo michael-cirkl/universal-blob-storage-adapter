@@ -291,44 +291,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
-        PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(blob.getKey())
-                .ifNoneMatch("*");
-        WriteOptionsMappers.applyBlobToAwsPutObject(requestBuilder, blob);
-
-        byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
-        CompletableFuture<String> createAttempt = client.putObject(
-                        requestBuilder.build(),
-                        AsyncRequestBody.fromBytes(content)
-                )
-                .thenApply(PutObjectResponse::eTag);
-
-        CompletableFuture<String> resolved = createAttempt
-                .handle((etag, error) -> {
-                    if (error == null) {
-                        return CompletableFuture.completedFuture(etag);
-                    }
-                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
-                    if (isPreconditionFailed(cause)) {
-                        HeadObjectRequest headRequest = HeadObjectRequest.builder()
-                                .bucket(bucketName)
-                                .key(blob.getKey())
-                                .build();
-                        return client.headObject(headRequest).thenApply(HeadObjectResponse::eTag);
-                    }
-                    return CompletableFuture.<String>failedFuture(cause);
-                })
-                .thenCompose(Function.identity());
-
-        return wrapS3Exception(
-                resolved,
-                "Failed to create AWS blob if not exists: s3://" + bucketName + "/" + blob.getKey()
-        );
-    }
-
-    @Override
     public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()

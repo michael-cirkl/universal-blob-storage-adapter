@@ -261,33 +261,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         );
     }
 
-    @Override
-    public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
-        BlobAsyncClient blobClient = blobClient(bucketName, blob.getKey());
-        BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob)
-                .setRequestConditions(new BlobRequestConditions().setIfNoneMatch("*"));
-        CompletableFuture<String> createAttempt = blobClient.uploadWithResponse(uploadOptions)
-                .map(response -> response.getValue().getETag())
-                .toFuture();
 
-        CompletableFuture<String> resolved = createAttempt
-                .handle((etag, error) -> {
-                    if (error == null) {
-                        return CompletableFuture.completedFuture(etag);
-                    }
-                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
-                    if (cause instanceof BlobStorageException blobError && isPreconditionConflict(blobError)) {
-                        return blobClient.getProperties().map(BlobProperties::getETag).toFuture();
-                    }
-                    return CompletableFuture.<String>failedFuture(cause);
-                })
-                .thenCompose(Function.identity());
-
-        return wrapBlobStorageException(
-                resolved,
-                "Failed to create Azure blob if not exists: " + bucketName + "/" + blob.getKey()
-        );
-    }
 
     @Override
     public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {

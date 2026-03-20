@@ -242,41 +242,6 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<String> createBlobIfNotExists(String bucketName, Blob blob) {
-        BlobInfo blobInfo = buildBlobInfo(bucketName, blob);
-        byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
-
-        CompletableFuture<String> createAttempt = CompletableFuture
-                .supplyAsync(
-                        () -> writeBlobAsync(blobInfo, content, Storage.BlobWriteOption.doesNotExist()),
-                        IO_EXECUTOR
-                )
-                .thenCompose(this::toCompletableFuture)
-                .thenApply(BlobInfo::getEtag);
-
-        CompletableFuture<String> resolved = createAttempt
-                .handle((etag, error) -> {
-                    if (error == null) {
-                        return CompletableFuture.completedFuture(etag);
-                    }
-                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
-                    if (isPreconditionFailed(cause)) {
-                        return CompletableFuture.supplyAsync(
-                                () -> getExistingBlobEtag(bucketName, blob.getKey()),
-                                IO_EXECUTOR
-                        );
-                    }
-                    return CompletableFuture.<String>failedFuture(cause);
-                })
-                .thenCompose(Function.identity());
-
-        return wrapStorageException(
-                resolved,
-                "Failed to create GCP blob if not exists: gs://" + bucketName + "/" + blob.getKey()
-        );
-    }
-
-    @Override
     public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {
         try {
             long seconds = toPositiveSeconds(expiry);

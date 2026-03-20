@@ -64,7 +64,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     @Override
     public Blob getBlob(String bucketName, String blobKey) {
         try {
-            com.google.cloud.storage.Blob gcsBlob = getRequiredBlob(bucketName, blobKey);
+            com.google.cloud.storage.Blob gcsBlob = client.get(bucketName, blobKey);
             return Blob.builder()
                     .bucket(bucketName)
                     .key(blobKey)
@@ -292,33 +292,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         }
     }
 
-    @Override
-    public String createBlobIfNotExists(String bucketName, Blob blob) {
-        try {
-            BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blob.getKey());
-            WriteOptionsMappers.applyBlobToGcpBlobInfo(blobBuilder, blob);
-            BlobInfo blobInfo = blobBuilder.build();
 
-            byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
-            try (WriteChannel writeChannel = client.writer(blobInfo, Storage.BlobWriteOption.doesNotExist())) {
-                ByteBuffer buffer = ByteBuffer.wrap(content);
-                while (buffer.hasRemaining()) {
-                    writeChannel.write(buffer);
-                }
-            } catch (IOException e) {
-                throw new UbsaException("Failed to write blob content to GCS.", e);
-            }
-            return getExistingBlobEtag(bucketName, blob.getKey());
-        } catch (StorageException error) {
-            if (isPreconditionFailed(error)) {
-                return getExistingBlobEtag(bucketName, blob.getKey());
-            }
-            throw new UbsaException(
-                    "Failed to create GCP blob if not exists: gs://" + bucketName + "/" + blob.getKey(),
-                    error
-            );
-        }
-    }
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
@@ -388,30 +362,6 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                 .publicURI(toGsUri(bucketName, gcsBlob.getName()))
                 .build()));
         return blobs;
-    }
-
-    private com.google.cloud.storage.Blob getRequiredBlob(String bucketName, String blobKey) {
-        try {
-            com.google.cloud.storage.Blob blob = client.get(bucketName, blobKey);
-            if (blob == null) {
-                throw new UbsaException("Blob not found: gs://" + bucketName + "/" + blobKey);
-            }
-            return blob;
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to retrieve GCP blob metadata: gs://" + bucketName + "/" + blobKey, error);
-        }
-    }
-
-    private boolean isPreconditionFailed(StorageException error) {
-        return error.getCode() == 412;
-    }
-
-    private String getExistingBlobEtag(String bucketName, String blobKey) {
-        com.google.cloud.storage.Blob existing = client.get(bucketName, blobKey);
-        if (existing == null) {
-            throw new IllegalStateException("Blob not found after conditional create attempt: gs://" + bucketName + "/" + blobKey);
-        }
-        return existing.getEtag();
     }
 
 }
