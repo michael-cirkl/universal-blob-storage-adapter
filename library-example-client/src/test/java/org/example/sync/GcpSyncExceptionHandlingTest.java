@@ -5,6 +5,11 @@ import com.google.cloud.storage.StorageException;
 import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.sync.GCPSyncClientImpl;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,6 +85,21 @@ class GcpSyncExceptionHandlingTest {
         UbsaException error = assertThrows(UbsaException.class, () -> adapter.deleteBucketIfExists("bucket"));
         assertEquals("gcp delete failed", error.getMessage());
         assertEquals(500, error.getStatusCode());
+        assertSame(failure, error.getCause());
+    }
+
+    @Test
+    void createBlobFromFileWrapsIoFailuresInUbsaException(@TempDir Path tempDir) throws IOException {
+        Storage client = mock(Storage.class);
+        GCPSyncClientImpl adapter = new GCPSyncClientImpl(client);
+        Path sourceFile = Files.writeString(tempDir.resolve("blob.txt"), "content");
+        IOException failure = new IOException("disk failure");
+        when(client.createFrom(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(sourceFile)))
+                .thenThrow(failure);
+
+        UbsaException error = assertThrows(UbsaException.class, () -> adapter.createBlob("bucket", "blob", sourceFile));
+        assertEquals("disk failure", error.getMessage());
+        assertEquals(0, error.getStatusCode());
         assertSame(failure, error.getCause());
     }
 }

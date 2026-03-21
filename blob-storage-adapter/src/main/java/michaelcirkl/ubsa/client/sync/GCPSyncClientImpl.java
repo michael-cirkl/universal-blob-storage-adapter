@@ -11,14 +11,12 @@ import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.GCPExceptionHandler;
-import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
@@ -76,7 +74,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     @Override
     public Void deleteBucket(String bucketName) {
         return exceptionHandler.handle(() -> {
-            if (!client.delete(bucketName)) { // returns false, other SDKs throw exception
+            if (!client.delete(bucketName)) { // returns false if not found, other SDKs throw exception
                 throw new StorageException(404, "Bucket not found: " + bucketName);
             }
             return null;
@@ -101,8 +99,6 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                 while (buffer.hasRemaining()) {
                     writeChannel.write(buffer);
                 }
-            } catch (IOException e) {
-                throw new UbsaException("Failed to write blob content to GCS.", e);
             }
             return requireBlob(bucketName, blob.getKey()).getEtag();
         });
@@ -113,13 +109,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         FileUploadValidators.validateSourceFile(sourceFile);
         return exceptionHandler.handle(() -> {
             BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
-            try {
-                return client.createFrom(blobInfo, sourceFile).getEtag();
-            } catch (IOException e) {
-                throw new UbsaException(
-                        "Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file", e
-                );
-            }
+            return client.createFrom(blobInfo, sourceFile).getEtag();
         });
     }
 
@@ -135,8 +125,6 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             BlobInfo blobInfo = blobBuilder.build();
             try (WriteChannel writeChannel = client.writer(blobInfo)) {
                 ContentLengthValidators.copyInputStreamToChannel(content, writeChannel, contentLength);
-            } catch (IOException e) {
-                throw new UbsaException("Failed to stream-write blob content to GCS.", e);
             }
             return requireBlob(bucketName, blobKey).getEtag();
         });
@@ -239,8 +227,6 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                     remaining -= read;
                 }
                 return output.toByteArray();
-            } catch (IOException e) {
-                throw new UbsaException("Failed to read byte range from GCS blob.", e);
             }
         });
     }

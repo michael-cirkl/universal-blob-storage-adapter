@@ -1,7 +1,7 @@
 package michaelcirkl.ubsa.client.exception;
 
 public class UbsaException extends RuntimeException {
-    private int statusCode; //make final later
+    private int statusCode;
     public UbsaException(String message, Throwable nativeException) {
         super(message, nativeException);
     }

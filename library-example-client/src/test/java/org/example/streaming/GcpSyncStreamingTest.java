@@ -30,6 +30,7 @@ class GcpSyncStreamingTest {
     void openBlobStreamReadsFromReadChannel() throws Exception {
         Storage storage = mock(Storage.class);
         byte[] expected = "gcp-sync-open".getBytes();
+        when(storage.get("bucket", "blob")).thenReturn(mock(com.google.cloud.storage.Blob.class));
         when(storage.reader(ArgumentMatchers.any())).thenReturn(new StreamingTestSupport.ByteArrayReadChannel(expected));
 
         GCPSyncClientImpl adapter = new GCPSyncClientImpl(storage);
