@@ -98,7 +98,7 @@ public class AwsAsyncMain {
             System.out.println("Presigned PUT URL: " + presignedPut);
             System.out.println("Presigned GET URL: " + presignedGet);
 
-            client.deleteBlob(bucketName, "example").get();
+            client.deleteBlobIfExists(bucketName, "example").get();
             client.deleteBucket(bucketName).get();
             System.out.println("IAM role auth test passed with temporary STS credentials.");
         } finally {

@@ -149,7 +149,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Void> deleteBlob(String bucketName, String blobKey) {
+    public CompletableFuture<Void> deleteBlobIfExists(String bucketName, String blobKey) {
         return wrapStorageException(
                 CompletableFuture.runAsync(() -> client.delete(bucketName, blobKey), IO_EXECUTOR),
                 "Failed to delete GCP blob gs://" + bucketName + "/" + blobKey

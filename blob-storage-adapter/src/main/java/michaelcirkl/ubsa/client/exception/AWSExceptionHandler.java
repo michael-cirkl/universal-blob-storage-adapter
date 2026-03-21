@@ -4,7 +4,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.util.function.Supplier;
 
-public final class AwsExceptionHandler {
+public final class AWSExceptionHandler {
     public <T> T handle(Supplier<T> action) {
         try {
             return action.get();

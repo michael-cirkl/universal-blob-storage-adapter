@@ -63,7 +63,7 @@ public class GcpSyncMain {
             }
         } finally {
             try {
-                client.deleteBlob(bucketName, blobKey);
+                client.deleteBlobIfExists(bucketName, blobKey);
             } catch (Exception cleanupError) {
                 System.err.println("Cleanup warning: " + cleanupError.getMessage());
             }

@@ -12,7 +12,6 @@ import java.nio.file.Path;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class AzureAsyncMain {
@@ -61,7 +60,7 @@ public class AzureAsyncMain {
             System.out.println("SAS GET URL: " + getUrl);
         } finally {
             try {
-                client.deleteBlob(bucketName, blobKey).get();
+                client.deleteBlobIfExists(bucketName, blobKey).get();
             } catch (Exception cleanupError) {
                 System.err.println("Cleanup warning: " + cleanupError.getMessage());
             }

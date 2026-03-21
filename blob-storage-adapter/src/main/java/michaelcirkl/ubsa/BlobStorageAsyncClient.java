@@ -31,7 +31,7 @@ public interface BlobStorageAsyncClient {
 
     CompletableFuture<String> createBlob(String bucketName, String blobKey, Flow.Publisher<ByteBuffer> content, long contentLength, BlobWriteOptions options);
 
-    CompletableFuture<Void> deleteBlob(String bucketName, String blobKey);
+    CompletableFuture<Void> deleteBlobIfExists(String bucketName, String blobKey);
 
     CompletableFuture<String> copyBlob(
             String sourceBucketName,

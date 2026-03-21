@@ -155,7 +155,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Void> deleteBlob(String bucketName, String blobKey) {
+    public CompletableFuture<Void> deleteBlobIfExists(String bucketName, String blobKey) {
         return wrapBlobStorageException(
                 blobClient(bucketName, blobKey)
                         .deleteIfExists()

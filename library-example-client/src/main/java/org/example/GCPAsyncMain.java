@@ -64,7 +64,7 @@ public class GCPAsyncMain {
             }
         } finally {
             try {
-                client.deleteBlob(bucketName, blobKey).get();
+                client.deleteBlobIfExists(bucketName, blobKey).get();
             } catch (Exception cleanupError) {
                 System.err.println("Cleanup warning: " + cleanupError.getMessage());
             }

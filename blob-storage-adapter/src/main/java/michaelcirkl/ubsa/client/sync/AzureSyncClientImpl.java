@@ -140,7 +140,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public Void deleteBlob(String bucketName, String blobKey) {
+    public Void deleteBlobIfExists(String bucketName, String blobKey) {
         return exceptionHandler.handle(() -> {
             blobClient(bucketName, blobKey).deleteIfExists();
             return null;

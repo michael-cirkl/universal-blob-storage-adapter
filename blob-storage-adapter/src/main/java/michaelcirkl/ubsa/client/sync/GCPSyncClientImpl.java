@@ -10,6 +10,7 @@ import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.exception.GCPExceptionHandler;
 import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class GCPSyncClientImpl implements BlobStorageSyncClient {
+    private final GCPExceptionHandler exceptionHandler = new GCPExceptionHandler();
     private final Storage client;
 
     public GCPSyncClientImpl(Storage client) {
@@ -54,65 +56,41 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public Boolean bucketExists(String bucketName) {
-        try {
-            return client.get(bucketName) != null;
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to check whether GCP bucket exists: " + bucketName, error);
-        }
+        return exceptionHandler.handle(() -> client.get(bucketName) != null);
     }
 
     @Override
     public Blob getBlob(String bucketName, String blobKey) {
-        try {
-            com.google.cloud.storage.Blob gcsBlob = client.get(bucketName, blobKey);
-            return Blob.builder()
-                    .bucket(bucketName)
-                    .key(blobKey)
-                    .content(gcsBlob.getContent())
-                    .size(gcsBlob.getSize())
-                    .lastModified(toLocalDateTime(gcsBlob.getUpdateTimeOffsetDateTime()))
-                    .encoding(gcsBlob.getContentEncoding())
-                    .etag(gcsBlob.getEtag())
-                    .userMetadata(gcsBlob.getMetadata())
-                    .publicURI(toGsUri(bucketName, blobKey))
-                    .build();
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to get GCP blob gs://" + bucketName + "/" + blobKey, error);
-        }
+        return exceptionHandler.handle(() -> mapBlob(bucketName, blobKey, requireBlob(bucketName, blobKey)));
     }
 
     @Override
     public InputStream openBlobStream(String bucketName, String blobKey) {
-        try {
+        return exceptionHandler.handle(() -> {
+            requireBlob(bucketName, blobKey);
             ReadChannel readChannel = client.reader(BlobId.of(bucketName, blobKey));
             return Channels.newInputStream(readChannel);
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to open GCP blob stream gs://" + bucketName + "/" + blobKey, error);
-        }
+        });
     }
 
     @Override
     public Void deleteBucket(String bucketName) {
-        try {
-            client.delete(bucketName);
+        return exceptionHandler.handle(() -> {
+            if (!client.delete(bucketName)) { // returns false, other SDKs throw exception
+                throw new StorageException(404, "Bucket not found: " + bucketName);
+            }
             return null;
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to delete GCP bucket: " + bucketName, error);
-        }
+        });
     }
 
     @Override
     public Boolean blobExists(String bucketName, String blobKey) {
-        try {
-            return client.get(bucketName, blobKey) != null;
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to check whether GCP blob exists: gs://" + bucketName + "/" + blobKey, error);
-        }
+        return exceptionHandler.handle(() -> client.get(bucketName, blobKey) != null);
     }
 
     @Override
     public String createBlob(String bucketName, Blob blob) {
-        try {
+        return exceptionHandler.handle(() -> {
             BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blob.getKey());
             WriteOptionsMappers.applyBlobToGcpBlobInfo(blobBuilder, blob);
 
@@ -126,27 +104,23 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             } catch (IOException e) {
                 throw new UbsaException("Failed to write blob content to GCS.", e);
             }
-            com.google.cloud.storage.Blob created = client.get(bucketName, blob.getKey());
-            if (created == null) {
-                throw new IllegalStateException("Created blob could not be retrieved: gs://" + bucketName + "/" + blob.getKey());
-            }
-            return created.getEtag();
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to create GCP blob gs://" + bucketName + "/" + blob.getKey(), error);
-        }
+            return requireBlob(bucketName, blob.getKey()).getEtag();
+        });
     }
 
     @Override
     public String createBlob(String bucketName, String blobKey, Path sourceFile) {
         FileUploadValidators.validateSourceFile(sourceFile);
-        try {
+        return exceptionHandler.handle(() -> {
             BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
-            return client.createFrom(blobInfo, sourceFile).getEtag();
-        } catch (IOException | StorageException e) {
-            throw new UbsaException(
-                    "Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file", e
-            );
-        }
+            try {
+                return client.createFrom(blobInfo, sourceFile).getEtag();
+            } catch (IOException e) {
+                throw new UbsaException(
+                        "Failed to create GCP blob gs://" + bucketName + "/" + blobKey + " from file", e
+                );
+            }
+        });
     }
 
     @Override
@@ -155,7 +129,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         if (content == null) {
             throw new IllegalArgumentException("Content stream must not be null.");
         }
-        try {
+        return exceptionHandler.handle(() -> {
             BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blobKey);
             WriteOptionsMappers.applyOptionsToGcpBlobInfo(blobBuilder, options);
             BlobInfo blobInfo = blobBuilder.build();
@@ -164,29 +138,21 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             } catch (IOException e) {
                 throw new UbsaException("Failed to stream-write blob content to GCS.", e);
             }
-            com.google.cloud.storage.Blob created = client.get(bucketName, blobKey);
-            if (created == null) {
-                throw new IllegalStateException("Created blob could not be retrieved: gs://" + bucketName + "/" + blobKey);
-            }
-            return created.getEtag();
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to stream-create GCP blob gs://" + bucketName + "/" + blobKey, error);
-        }
+            return requireBlob(bucketName, blobKey).getEtag();
+        });
     }
 
     @Override
-    public Void deleteBlob(String bucketName, String blobKey) {
-        try {
+    public Void deleteBlobIfExists(String bucketName, String blobKey) {
+        return exceptionHandler.handle(() -> {
             client.delete(bucketName, blobKey);
             return null;
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to delete GCP blob gs://" + bucketName + "/" + blobKey, error);
-        }
+        });
     }
 
     @Override
     public String copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
-        try {
+        return exceptionHandler.handle(() -> {
             CopyRequest request = CopyRequest.newBuilder()
                     .setSource(BlobId.of(sourceBucketName, sourceBlobKey))
                     .setTarget(BlobId.of(destinationBucketName, destinationBlobKey))
@@ -194,20 +160,14 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             CopyWriter copyWriter = client.copy(request);
             com.google.cloud.storage.Blob copied = copyWriter.getResult();
             return copied.getEtag();
-        } catch (StorageException error) {
-            throw new UbsaException(
-                    "Failed to copy GCP blob from gs://" + sourceBucketName + "/" + sourceBlobKey
-                            + " to gs://" + destinationBucketName + "/" + destinationBlobKey,
-                    error
-            );
-        }
+        });
     }
 
     @Override
     public List<Bucket> listAllBuckets() {
-        try {
+        return exceptionHandler.handle(() -> {
             List<Bucket> buckets = new ArrayList<>();
-            Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(1000));
+            Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(500));
             bucketPage.iterateAll().forEach(gcsBucket -> {
                 LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
                 buckets.add(Bucket.builder()
@@ -218,31 +178,25 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                         .build());
             });
             return buckets;
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to list GCP buckets", error);
-        }
+        });
     }
 
     @Override
     public List<Blob> listBlobsByPrefix(String bucketName, String prefix) {
-        try {
+        return exceptionHandler.handle(() -> {
             Page<com.google.cloud.storage.Blob> blobPage = (prefix != null && !prefix.isBlank())
                     ? client.list(bucketName, BlobListOption.prefix(prefix))
                     : client.list(bucketName);
             return mapBlobsFromPage(bucketName, blobPage);
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to list GCP blobs in bucket " + bucketName, error);
-        }
+        });
     }
 
     @Override
     public Void createBucket(Bucket bucket) {
-        try {
+        return exceptionHandler.handle(() -> {
             client.create(BucketInfo.of(bucket.getName()));
             return null;
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to create GCP bucket " + bucket.getName(), error);
-        }
+        });
     }
 
     @Override
@@ -252,19 +206,23 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public Void deleteBucketIfExists(String bucketName) {
-        try {
-            client.delete(bucketName);
+        return exceptionHandler.handle(() -> {
+            try {
+                client.delete(bucketName);
+            } catch (StorageException error) {
+                if (error.getCode() != 404) { // delete if not exists means I don't throw when not found
+                    throw error;
+                }
+            }
             return null;
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to delete GCP bucket if exists: " + bucketName, error);
-        }
+        });
     }
 
     @Override
     public byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
         validateRange(startInclusive, endInclusive);
         long requestedLength = endInclusive - startInclusive + 1;
-        try {
+        return exceptionHandler.handle(() -> {
             try (ReadChannel readChannel = client.reader(BlobId.of(bucketName, blobKey));
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 readChannel.seek(startInclusive);
@@ -281,33 +239,26 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                     remaining -= read;
                 }
                 return output.toByteArray();
+            } catch (IOException e) {
+                throw new UbsaException("Failed to read byte range from GCS blob.", e);
             }
-        } catch (IOException e) {
-            throw new UbsaException("Failed to read byte range from GCS blob.", e);
-        } catch (StorageException error) {
-            throw new UbsaException(
-                    "Failed to read byte range from GCP blob gs://" + bucketName + "/" + blobKey,
-                    error
-            );
-        }
+        });
     }
 
 
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
-        try {
+        return exceptionHandler.handle(() -> {
             long seconds = toPositiveSeconds(expiry);
             BlobInfo blobInfo = BlobInfo.newBuilder(bucket, objectKey).build();
             return client.signUrl(blobInfo, seconds, TimeUnit.SECONDS);
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to generate GCP GET URL for gs://" + bucket + "/" + objectKey, error);
-        }
+        });
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        try {
+        return exceptionHandler.handle(() -> {
             long seconds = toPositiveSeconds(expiry);
             BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucket, objectKey);
             if (contentType != null && !contentType.isBlank()) {
@@ -320,9 +271,7 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                 options.add(Storage.SignUrlOption.withContentType());
             }
             return client.signUrl(blobInfo, seconds, TimeUnit.SECONDS, options.toArray(new Storage.SignUrlOption[0]));
-        } catch (StorageException error) {
-            throw new UbsaException("Failed to generate GCP PUT URL for gs://" + bucket + "/" + objectKey, error);
-        }
+        });
     }
 
     private long toPositiveSeconds(Duration expiry) {
@@ -343,6 +292,28 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
                 ? "gs://" + bucketName
                 : "gs://" + bucketName + "/" + objectKey;
         return URI.create(uri);
+    }
+
+    private Blob mapBlob(String bucketName, String blobKey, com.google.cloud.storage.Blob gcsBlob) {
+        return Blob.builder()
+                .bucket(bucketName)
+                .key(blobKey)
+                .content(gcsBlob.getContent())
+                .size(gcsBlob.getSize())
+                .lastModified(toLocalDateTime(gcsBlob.getUpdateTimeOffsetDateTime()))
+                .encoding(gcsBlob.getContentEncoding())
+                .etag(gcsBlob.getEtag())
+                .userMetadata(gcsBlob.getMetadata())
+                .publicURI(toGsUri(bucketName, blobKey))
+                .build();
+    }
+
+    private com.google.cloud.storage.Blob requireBlob(String bucketName, String blobKey) {
+        com.google.cloud.storage.Blob blob = client.get(bucketName, blobKey);
+        if (blob == null) {
+            throw new StorageException(404, "Blob not found: gs://" + bucketName + "/" + blobKey);
+        }
+        return blob;
     }
 
     private LocalDateTime toLocalDateTime(OffsetDateTime time) {

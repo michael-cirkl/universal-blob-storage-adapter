@@ -29,7 +29,7 @@ public interface BlobStorageSyncClient {
 
     String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options);
 
-    Void deleteBlob(String bucketName, String blobKey);
+    Void deleteBlobIfExists(String bucketName, String blobKey);
 
     String copyBlob(
             String sourceBucketName,

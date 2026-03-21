@@ -184,7 +184,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Void> deleteBlob(String bucketName, String blobKey) {
+    public CompletableFuture<Void> deleteBlobIfExists(String bucketName, String blobKey) {
         DeleteObjectRequest request = DeleteObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blobKey)
