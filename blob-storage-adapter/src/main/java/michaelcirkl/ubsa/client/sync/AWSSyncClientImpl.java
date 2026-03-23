@@ -2,7 +2,7 @@ package michaelcirkl.ubsa.client.sync;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.aws.AwsClientSupport;
+import michaelcirkl.ubsa.client.util.AwsClientSupport;
 import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;

@@ -3,7 +3,7 @@ package michaelcirkl.ubsa.client.async;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.aws.AwsClientSupport;
+import michaelcirkl.ubsa.client.util.AwsClientSupport;
 import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.*;
 import software.amazon.awssdk.core.ResponseBytes;

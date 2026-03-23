@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa.client.aws;
+package michaelcirkl.ubsa.client.util;
 
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
