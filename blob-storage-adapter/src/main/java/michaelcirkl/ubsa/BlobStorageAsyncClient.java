@@ -19,7 +19,7 @@ public interface BlobStorageAsyncClient {
 
     CompletableFuture<Blob> getBlob(String bucketName, String blobKey);
 
-    CompletableFuture<Flow.Publisher<ByteBuffer>> openBlobStream(String bucketName, String blobKey);
+    Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey);
 
     CompletableFuture<Void> deleteBucket(String bucketName);
 

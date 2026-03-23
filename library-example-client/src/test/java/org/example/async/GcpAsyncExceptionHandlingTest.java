@@ -11,10 +11,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -55,6 +58,21 @@ class GcpAsyncExceptionHandlingTest {
     }
 
     @Test
+    void deleteBucketWrapsMissingBucketInUbsaException() {
+        Storage client = mock(Storage.class);
+        GCPAsyncClientImpl adapter = new GCPAsyncClientImpl(client);
+        when(client.delete("bucket")).thenReturn(false);
+
+        CompletionException completionError = assertThrows(CompletionException.class, () -> adapter.deleteBucket("bucket").join());
+
+        assertTrue(completionError.getCause() instanceof UbsaException);
+        UbsaException error = (UbsaException) completionError.getCause();
+        assertEquals("Bucket not found: bucket", error.getMessage());
+        assertEquals(404, error.getStatusCode());
+        assertTrue(error.getCause() instanceof StorageException);
+    }
+
+    @Test
     void generateGetUrlWrapsStorageFailuresInUbsaException() {
         Storage client = mock(Storage.class);
         GCPAsyncClientImpl adapter = new GCPAsyncClientImpl(client);
@@ -89,5 +107,46 @@ class GcpAsyncExceptionHandlingTest {
         assertEquals(0, error.getStatusCode());
         assertInstanceOf(IOException.class, error.getCause());
         assertSame(failure, error.getCause());
+    }
+
+    @Test
+    void openBlobStreamWrapsStorageFailuresInUbsaException() throws Exception {
+        Storage client = mock(Storage.class);
+        GCPAsyncClientImpl adapter = new GCPAsyncClientImpl(client);
+        StorageException failure = new StorageException(404, "gcp missing");
+        when(client.reader(any(BlobId.class))).thenThrow(failure);
+
+        Throwable error = streamError(adapter.openBlobStream("bucket", "blob"));
+
+        assertTrue(error instanceof UbsaException);
+        UbsaException ubsaError = (UbsaException) error;
+        assertEquals("gcp missing", ubsaError.getMessage());
+        assertEquals(404, ubsaError.getStatusCode());
+        assertSame(failure, ubsaError.getCause());
+    }
+
+    private static Throwable streamError(Flow.Publisher<ByteBuffer> publisher) throws Exception {
+        CompletableFuture<Throwable> future = new CompletableFuture<>();
+        publisher.subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                subscription.request(Long.MAX_VALUE);
+            }
+
+            @Override
+            public void onNext(ByteBuffer item) {
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                future.complete(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+                future.completeExceptionally(new AssertionError("Expected stream failure"));
+            }
+        });
+        return future.get(5, TimeUnit.SECONDS);
     }
 }

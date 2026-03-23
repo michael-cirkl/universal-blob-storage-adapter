@@ -88,16 +88,22 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Flow.Publisher<ByteBuffer>> openBlobStream(String bucketName, String blobKey) {
-        return exceptionHandler.handleAsync(
-                CompletableFuture.completedFuture(new GcpReadChannelFlowPublisher(client, BlobId.of(bucketName, blobKey), IO_EXECUTOR))
+    public Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey) {
+        return FlowPublisherBridge.mapErrors(
+                new GcpReadChannelFlowPublisher(client, BlobId.of(bucketName, blobKey), IO_EXECUTOR),
+                exceptionHandler::propagate
         );
     }
 
     @Override
     public CompletableFuture<Void> deleteBucket(String bucketName) {
         return exceptionHandler.handleAsync(
-                CompletableFuture.runAsync(() -> client.delete(bucketName), IO_EXECUTOR)
+                CompletableFuture.supplyAsync(() -> {
+                    if (!client.delete(bucketName)) {
+                        throw new StorageException(404, "Bucket not found: " + bucketName);
+                    }
+                    return null;
+                }, IO_EXECUTOR)
         );
     }
 
@@ -235,18 +241,16 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
-        try {
+        return exceptionHandler.handle(() -> {
             long seconds = toPositiveSeconds(expiry);
             BlobInfo blobInfo = BlobInfo.newBuilder(bucket, objectKey).build();
             return client.signUrl(blobInfo, seconds, TimeUnit.SECONDS);
-        } catch (StorageException error) {
-            throw exceptionHandler.wrap(error);
-        }
+        });
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        try {
+        return exceptionHandler.handle(() -> {
             long seconds = toPositiveSeconds(expiry);
             BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucket, objectKey);
             if (contentType != null && !contentType.isBlank()) {
@@ -259,9 +263,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                 options.add(Storage.SignUrlOption.withContentType());
             }
             return client.signUrl(blobInfo, seconds, TimeUnit.SECONDS, options.toArray(new Storage.SignUrlOption[0]));
-        } catch (StorageException error) {
-            throw exceptionHandler.wrap(error);
-        }
+        });
     }
 
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content, Storage.BlobWriteOption... writeOptions) {

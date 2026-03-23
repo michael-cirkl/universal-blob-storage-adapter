@@ -13,9 +13,12 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Flow;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class AwsAsyncExceptionHandlingTest {
@@ -86,6 +90,37 @@ class AwsAsyncExceptionHandlingTest {
     }
 
     @Test
+    void getByteRangeRejectsInvalidRangesBeforeCallingSdk() {
+        S3AsyncClient client = mock(S3AsyncClient.class);
+        AWSAsyncClientImpl adapter = new AWSAsyncClientImpl(client);
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.getByteRange("bucket", "blob", -1, 5)
+        );
+
+        assertEquals("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.", error.getMessage());
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void openBlobStreamWrapsOpenFailuresInUbsaException() throws Exception {
+        S3AsyncClient client = mock(S3AsyncClient.class);
+        AWSAsyncClientImpl adapter = new AWSAsyncClientImpl(client);
+        S3Exception failure = s3Exception(404, "missing");
+        when(client.getObject(any(GetObjectRequest.class), any(AsyncResponseTransformer.class)))
+                .thenReturn(CompletableFuture.failedFuture(failure));
+
+        Throwable error = streamError(adapter.openBlobStream("bucket", "blob"));
+
+        assertTrue(error instanceof UbsaException);
+        UbsaException ubsaError = (UbsaException) error;
+        assertEquals("missing", ubsaError.getMessage());
+        assertEquals(404, ubsaError.getStatusCode());
+        assertSame(failure, ubsaError.getCause());
+    }
+
+    @Test
     void listBlobsByPrefixReadsAllPagesInOrder() {
         S3AsyncClient client = mock(S3AsyncClient.class);
         AWSAsyncClientImpl adapter = new AWSAsyncClientImpl(client);
@@ -117,5 +152,30 @@ class AwsAsyncExceptionHandlingTest {
         builder.statusCode(statusCode);
         builder.message(message);
         return (S3Exception) builder.build();
+    }
+
+    private static Throwable streamError(Flow.Publisher<ByteBuffer> publisher) throws Exception {
+        CompletableFuture<Throwable> future = new CompletableFuture<>();
+        publisher.subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                subscription.request(Long.MAX_VALUE);
+            }
+
+            @Override
+            public void onNext(ByteBuffer item) {
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                future.complete(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+                future.completeExceptionally(new AssertionError("Expected stream failure"));
+            }
+        });
+        return future.get(5, TimeUnit.SECONDS);
     }
 }

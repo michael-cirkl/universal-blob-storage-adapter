@@ -43,7 +43,7 @@ class AwsAsyncStreamingTest {
         when(client.getObject(any(GetObjectRequest.class), any(AsyncResponseTransformer.class)))
                 .thenReturn((CompletableFuture) CompletableFuture.completedFuture(publisher));
 
-        Flow.Publisher<ByteBuffer> opened = adapter.openBlobStream("bucket", "blob").get();
+        Flow.Publisher<ByteBuffer> opened = adapter.openBlobStream("bucket", "blob");
         assertArrayEquals("aws-async".getBytes(), StreamingTestSupport.collectFlowPublisher(opened));
     }
 

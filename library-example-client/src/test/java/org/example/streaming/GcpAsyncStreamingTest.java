@@ -32,7 +32,7 @@ class GcpAsyncStreamingTest {
         when(storage.reader(ArgumentMatchers.any())).thenReturn(new StreamingTestSupport.ByteArrayReadChannel(expected));
 
         GCPAsyncClientImpl adapter = new GCPAsyncClientImpl(storage);
-        Flow.Publisher<ByteBuffer> publisher = adapter.openBlobStream("bucket", "blob").get();
+        Flow.Publisher<ByteBuffer> publisher = adapter.openBlobStream("bucket", "blob");
         assertArrayEquals(expected, StreamingTestSupport.collectFlowPublisher(publisher));
     }
 

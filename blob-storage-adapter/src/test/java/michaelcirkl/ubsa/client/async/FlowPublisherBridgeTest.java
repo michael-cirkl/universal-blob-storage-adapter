@@ -241,4 +241,44 @@ class FlowPublisherBridgeTest {
         assertNotNull(reactiveError.get());
         assertTrue(reactiveError.get() instanceof IllegalArgumentException);
     }
+
+    @Test
+    void mapErrorsTransformsPublisherFailures() {
+        RuntimeException failure = new RuntimeException("boom");
+        IllegalStateException mapped = new IllegalStateException("mapped", failure);
+        AtomicReference<Throwable> observedError = new AtomicReference<>();
+
+        FlowPublisherBridge.mapErrors((Flow.Publisher<Integer>) subscriber -> {
+            subscriber.onSubscribe(new Flow.Subscription() {
+                @Override
+                public void request(long n) {
+                }
+
+                @Override
+                public void cancel() {
+                }
+            });
+            subscriber.onError(failure);
+        }, error -> mapped).subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                subscription.request(1);
+            }
+
+            @Override
+            public void onNext(Integer item) {
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                observedError.set(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+            }
+        });
+
+        assertSame(mapped, observedError.get());
+    }
 }

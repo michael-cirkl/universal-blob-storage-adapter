@@ -38,7 +38,7 @@ class AzureAsyncStreamingTest {
         when(blobAsyncClient.downloadStream()).thenReturn(Flux.just(ByteBuffer.wrap("azure-".getBytes()), ByteBuffer.wrap("async".getBytes())));
 
         AzureAsyncClientImpl adapter = new AzureAsyncClientImpl(serviceClient);
-        Flow.Publisher<ByteBuffer> publisher = adapter.openBlobStream("bucket", "blob").get();
+        Flow.Publisher<ByteBuffer> publisher = adapter.openBlobStream("bucket", "blob");
         assertArrayEquals("azure-async".getBytes(), StreamingTestSupport.collectFlowPublisher(publisher));
     }
 

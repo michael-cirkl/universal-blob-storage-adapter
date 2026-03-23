@@ -1,6 +1,7 @@
 package michaelcirkl.ubsa.client.streaming;
 
 import java.util.concurrent.Flow;
+import java.util.function.Function;
 
 public final class FlowPublisherBridge {
     private FlowPublisherBridge() {
@@ -16,6 +17,33 @@ public final class FlowPublisherBridge {
         return reactiveSubscriber -> {
             publisher.subscribe(new FlowToReactiveSubscriber<>(reactiveSubscriber));
         };
+    }
+
+    public static <T> Flow.Publisher<T> mapErrors(
+            Flow.Publisher<T> publisher,
+            Function<? super Throwable, ? extends Throwable> errorMapper
+    ) {
+        return downstream -> publisher.subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                downstream.onSubscribe(subscription);
+            }
+
+            @Override
+            public void onNext(T item) {
+                downstream.onNext(item);
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                downstream.onError(errorMapper.apply(throwable));
+            }
+
+            @Override
+            public void onComplete() {
+                downstream.onComplete();
+            }
+        });
     }
 
     private static final class ReactiveToFlowSubscriber<T> implements org.reactivestreams.Subscriber<T> {

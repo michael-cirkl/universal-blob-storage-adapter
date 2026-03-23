@@ -75,14 +75,17 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Flow.Publisher<ByteBuffer>> openBlobStream(String bucketName, String blobKey) {
+    public Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey) {
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return exceptionHandler.handleAsync(
-                client.getObject(request, AsyncResponseTransformer.toPublisher())
-                        .thenApply(FlowPublisherBridge::toFlowPublisher)
+        return new DeferredFlowPublisher<>(
+                exceptionHandler.handleAsync(
+                        client.getObject(request, AsyncResponseTransformer.toPublisher())
+                                .thenApply(FlowPublisherBridge::toFlowPublisher)
+                ),
+                exceptionHandler::propagate
         );
     }
 
@@ -228,6 +231,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
+        validateRange(startInclusive, endInclusive);
         String range = "bytes=" + startInclusive + "-" + endInclusive;
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(bucketName)
@@ -243,41 +247,41 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey)
-                .build();
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(expiry)
-                .getObjectRequest(getObjectRequest)
-                .build();
-        try (S3Presigner presigner = createPresignerFromClientConfig()) {
-            PresignedGetObjectRequest presigned = presigner.presignGetObject(presignRequest);
-            return presigned.url();
-        } catch (S3Exception error) {
-            throw exceptionHandler.wrap(error);
-        }
+        return exceptionHandler.handle(() -> {
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(objectKey)
+                    .build();
+            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                    .signatureDuration(expiry)
+                    .getObjectRequest(getObjectRequest)
+                    .build();
+            try (S3Presigner presigner = createPresignerFromClientConfig()) {
+                PresignedGetObjectRequest presigned = presigner.presignGetObject(presignRequest);
+                return presigned.url();
+            }
+        });
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
         validateExpiry(expiry);
-        PutObjectRequest.Builder putBuilder = PutObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey);
-        if (contentType != null && !contentType.isBlank()) {
-            putBuilder.contentType(contentType);
-        }
-        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-                .signatureDuration(expiry)
-                .putObjectRequest(putBuilder.build())
-                .build();
-        try (S3Presigner presigner = createPresignerFromClientConfig()) {
-            PresignedPutObjectRequest presigned = presigner.presignPutObject(presignRequest);
-            return presigned.url();
-        } catch (S3Exception error) {
-            throw exceptionHandler.wrap(error);
-        }
+        return exceptionHandler.handle(() -> {
+            PutObjectRequest.Builder putBuilder = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(objectKey);
+            if (contentType != null && !contentType.isBlank()) {
+                putBuilder.contentType(contentType);
+            }
+            PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                    .signatureDuration(expiry)
+                    .putObjectRequest(putBuilder.build())
+                    .build();
+            try (S3Presigner presigner = createPresignerFromClientConfig()) {
+                PresignedPutObjectRequest presigned = presigner.presignPutObject(presignRequest);
+                return presigned.url();
+            }
+        });
     }
 
     private List<Bucket> mapBuckets(ListBucketsResponse response) {
@@ -372,11 +376,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         return URI.create(uri);
     }
 
-    private boolean isPreconditionFailed(Throwable error) {
-        return error instanceof S3Exception s3Exception
-                && s3Exception.statusCode() == 412;
-    }
-
     private LocalDateTime parseExpiresHeader(String expiresHeader) {
         if (expiresHeader == null || expiresHeader.isBlank()) {
             return null;
@@ -399,6 +398,12 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         long maxSinglePutBytes = 5L * 1024L * 1024L * 1024L;
         if (contentLength > maxSinglePutBytes) {
             throw new IllegalArgumentException("AWS single PUT upload supports up to 5 GiB. Received: " + contentLength + " bytes.");
+        }
+    }
+
+    private void validateRange(long startInclusive, long endInclusive) {
+        if (startInclusive < 0 || endInclusive < startInclusive) {
+            throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
     }
 

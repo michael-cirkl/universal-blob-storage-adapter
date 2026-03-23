@@ -82,10 +82,11 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<Flow.Publisher<ByteBuffer>> openBlobStream(String bucketName, String blobKey) {
+    public Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey) {
         BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
-        return CompletableFuture.completedFuture(
-                FlowPublisherBridge.toFlowPublisher(blobClient.downloadStream())
+        return FlowPublisherBridge.mapErrors(
+                FlowPublisherBridge.toFlowPublisher(blobClient.downloadStream()),
+                exceptionHandler::propagate
         );
     }
 
@@ -252,22 +253,20 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
-        try {
+        return exceptionHandler.handle(() -> {
             var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
             BlobSasPermission permission = new BlobSasPermission()
                     .setReadPermission(true);
             BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
             String sas = blobClient.generateSas(values);
             return buildSasUrl(blobClient.getBlobUrl(), sas);
-        } catch (BlobStorageException error) {
-            throw exceptionHandler.wrap(error);
-        }
+        });
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
         validateExpiry(expiry);
-        try {
+        return exceptionHandler.handle(() -> {
             var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
             BlobSasPermission permission = new BlobSasPermission()
                     .setCreatePermission(true)
@@ -275,9 +274,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
             BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
             String sas = blobClient.generateSas(values);
             return buildSasUrl(blobClient.getBlobUrl(), sas);
-        } catch (BlobStorageException error) {
-            throw exceptionHandler.wrap(error);
-        }
+        });
     }
 
     private BlobAsyncClient blobClient(String bucketName, String blobKey) {
