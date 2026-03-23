@@ -2,6 +2,7 @@ package michaelcirkl.ubsa.client.sync;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.aws.AwsClientSupport;
 import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
@@ -10,29 +11,16 @@ import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.services.s3.S3ServiceClientConfiguration;
 import software.amazon.awssdk.services.s3.model.*;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
-import java.time.*;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AWSSyncClientImpl implements BlobStorageSyncClient {
-    private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
-    private static final String PATH_STYLE_PROBE_KEY = "probe";
-
     private final AWSExceptionHandler exceptionHandler = new AWSExceptionHandler();
     private final S3Client client;
 
@@ -78,7 +66,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                     .build();
 
             ResponseBytes<GetObjectResponse> responseBytes = client.getObjectAsBytes(request);
-            return buildBlobFromGetObject(bucketName, blobKey, responseBytes);
+            return AwsClientSupport.buildBlobFromGetObject(bucketName, blobKey, responseBytes);
         });
     }
 
@@ -196,7 +184,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public List<Bucket> listAllBuckets() {
-        return exceptionHandler.handle(() -> mapBuckets(client.listBuckets()));
+        return exceptionHandler.handle(() -> AwsClientSupport.mapBuckets(client.listBuckets()));
     }
 
     @Override
@@ -268,70 +256,17 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         return exceptionHandler.handle(() -> {
-            validateExpiry(expiry);
-            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                    .bucket(bucket)
-                    .key(objectKey)
-                    .build();
-            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                    .signatureDuration(expiry)
-                    .getObjectRequest(getObjectRequest)
-                    .build();
-            try (S3Presigner presigner = createPresignerFromClientConfig()) {
-                PresignedGetObjectRequest presigned = presigner.presignGetObject(presignRequest);
-                return presigned.url();
-            }
+            AwsClientSupport.validateExpiry(expiry);
+            return AwsClientSupport.presignGetUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig);
         });
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
         return exceptionHandler.handle(() -> {
-            validateExpiry(expiry);
-            PutObjectRequest.Builder putBuilder = PutObjectRequest.builder()
-                    .bucket(bucket)
-                    .key(objectKey);
-            if (contentType != null && !contentType.isBlank()) {
-                putBuilder.contentType(contentType);
-            }
-            PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-                    .signatureDuration(expiry)
-                    .putObjectRequest(putBuilder.build())
-                    .build();
-            try (S3Presigner presigner = createPresignerFromClientConfig()) {
-                PresignedPutObjectRequest presigned = presigner.presignPutObject(presignRequest);
-                return presigned.url();
-            }
+            AwsClientSupport.validateExpiry(expiry);
+            return AwsClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig);
         });
-    }
-
-    private List<Bucket> mapBuckets(ListBucketsResponse response) {
-        List<Bucket> buckets = new ArrayList<>();
-        response.buckets().forEach(bucket -> {
-            LocalDateTime creation = toLocalDateTime(bucket.creationDate());
-            buckets.add(Bucket.builder()
-                    .name(bucket.name())
-                    .publicURI(toS3Uri(bucket.name(), null))
-                    .creationDate(creation)
-                    .lastModified(creation)
-                    .build());
-        });
-        return buckets;
-    }
-
-    private List<Blob> mapBlobsFromList(String bucketName, ListObjectsV2Response response) {
-        List<Blob> blobs = new ArrayList<>();
-        response.contents().forEach(object -> {
-            blobs.add(Blob.builder()
-                    .bucket(bucketName)
-                    .key(object.key())
-                    .size(object.size())
-                    .lastModified(toLocalDateTime(object.lastModified()))
-                    .etag(object.eTag())
-                    .publicURI(toS3Uri(bucketName, object.key()))
-                    .build());
-        });
-        return blobs;
     }
 
     private List<Blob> listAllBlobs(String bucketName, ListObjectsV2Request initialRequest) {
@@ -340,58 +275,13 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
 
         while (request != null) {
             ListObjectsV2Response response = client.listObjectsV2(request);
-            blobs.addAll(mapBlobsFromList(bucketName, response));
+            blobs.addAll(AwsClientSupport.mapBlobsFromList(bucketName, response));
             request = response.isTruncated()
                     ? initialRequest.toBuilder().continuationToken(response.nextContinuationToken()).build()
                     : null;
         }
 
         return blobs;
-    }
-
-    private Blob buildBlobFromGetObject(String bucketName, String blobKey, ResponseBytes<GetObjectResponse> responseBytes) {
-        GetObjectResponse response = responseBytes.response();
-        return Blob.builder()
-                .bucket(bucketName)
-                .key(blobKey)
-                .content(responseBytes.asByteArray())
-                .size(response.contentLength())
-                .lastModified(toLocalDateTime(response.lastModified()))
-                .encoding(response.contentEncoding())
-                .etag(response.eTag())
-                .userMetadata(response.metadata())
-                .publicURI(toS3Uri(bucketName, blobKey))
-                .expires(parseExpiresHeader(response.expiresString()))
-                .build();
-    };
-
-    private LocalDateTime toLocalDateTime(Instant instant) {
-        return instant == null ? null : LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
-    }
-
-    private URI toS3Uri(String bucketName, String key) {
-        String uri = (key == null || key.isBlank())
-                ? "s3://" + bucketName
-                : "s3://" + bucketName + "/" + key;
-        return URI.create(uri);
-    }
-
-    private LocalDateTime parseExpiresHeader(String expiresHeader) {
-        if (expiresHeader == null || expiresHeader.isBlank()) {
-            return null;
-        }
-        try {
-            ZonedDateTime expires = ZonedDateTime.parse(expiresHeader, DateTimeFormatter.RFC_1123_DATE_TIME);
-            return expires.withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
-    }
-
-    private void validateExpiry(Duration expiry) {
-        if (expiry == null || expiry.isZero() || expiry.isNegative()) {
-            throw new IllegalArgumentException("Expiry must be a positive duration.");
-        }
     }
 
     private void validateAwsSinglePutLength(long contentLength) {
@@ -402,30 +292,11 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         }
     }
 
-    private S3Presigner createPresignerFromClientConfig() {
-        S3ServiceClientConfiguration config = client.serviceClientConfiguration();
-        S3Presigner.Builder builder = S3Presigner.builder()
-                .region(config.region())
-                .credentialsProvider(config.credentialsProvider())
-                .serviceConfiguration(S3Configuration.builder()
-                        .pathStyleAccessEnabled(isPathStyleEnabled())
-                        .build());
-        config.endpointOverride().ifPresent(builder::endpointOverride);
-        return builder.build();
-    }
-
-    private boolean isPathStyleEnabled() {
-        try {
-            URL probeUrl = client.utilities().getUrl(GetUrlRequest.builder()
-                    .bucket(PATH_STYLE_PROBE_BUCKET)
-                    .key(PATH_STYLE_PROBE_KEY)
-                    .build());
-            String expectedPrefix = "/" + PATH_STYLE_PROBE_BUCKET + "/";
-            return probeUrl.getPath() != null && probeUrl.getPath().startsWith(expectedPrefix);
-        } catch (RuntimeException ignored) {
-            // If probe fails, it is virtual host style instead of path style
-            return false;
-        }
+    private software.amazon.awssdk.services.s3.presigner.S3Presigner createPresignerFromClientConfig() {
+        return AwsClientSupport.createPresignerFromClientConfig(
+                client.serviceClientConfiguration(),
+                () -> client.utilities().getUrl(AwsClientSupport.pathStyleProbeRequest())
+        );
     }
 
     private void validateRange(long startInclusive, long endInclusive) {
