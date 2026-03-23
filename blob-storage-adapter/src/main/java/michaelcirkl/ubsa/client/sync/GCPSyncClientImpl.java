@@ -10,7 +10,7 @@ import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.exception.gcp.GCPSyncExceptionHandler;
+import michaelcirkl.ubsa.client.exception.GCPExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class GCPSyncClientImpl implements BlobStorageSyncClient {
-    private final GCPSyncExceptionHandler exceptionHandler = new GCPSyncExceptionHandler();
+    private final GCPExceptionHandler exceptionHandler = new GCPExceptionHandler();
     private final Storage client;
 
     public GCPSyncClientImpl(Storage client) {

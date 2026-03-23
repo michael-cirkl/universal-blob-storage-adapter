@@ -1,14 +1,21 @@
-package michaelcirkl.ubsa.client.exception.gcp;
+package michaelcirkl.ubsa.client.exception;
 
-import com.google.cloud.storage.StorageException;
-import michaelcirkl.ubsa.client.exception.UbsaException;
+import com.azure.storage.blob.models.BlobStorageException;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 
-public final class GCPAsyncExceptionHandler {
-    public <T> CompletableFuture<T> handle(CompletableFuture<T> future) {
+public class AzureExceptionHandler {
+    public <T> T handle(Supplier<T> action) {
+        try {
+            return action.get();
+        } catch (BlobStorageException error) { // here can catch all specific Azure exception types and handle them
+            throw new UbsaException(error.getMessage(), error, error.getStatusCode());
+        }
+    }
+
+    public <T> CompletableFuture<T> handleAsync(CompletableFuture<T> future) {
         return future.handle((result, error) -> {
             if (error == null) {
                 return result;
@@ -24,12 +31,8 @@ public final class GCPAsyncExceptionHandler {
         return error;
     }
 
-    public UbsaException wrap(StorageException error) {
-        return new UbsaException(error.getMessage(), error, error.getCode());
-    }
-
-    public UbsaException wrap(IOException error) {
-        return new UbsaException(error.getMessage(), error);
+    public UbsaException wrap(BlobStorageException error) {
+        return new UbsaException(error.getMessage(), error, error.getStatusCode());
     }
 
     public RuntimeException propagate(Throwable error) {
@@ -37,11 +40,8 @@ public final class GCPAsyncExceptionHandler {
         if (cause instanceof UbsaException ubsaException) {
             return ubsaException;
         }
-        if (cause instanceof StorageException storageException) {
-            return wrap(storageException);
-        }
-        if (cause instanceof IOException ioException) {
-            return wrap(ioException);
+        if (cause instanceof BlobStorageException blobStorageException) {
+            return wrap(blobStorageException);
         }
         if (cause instanceof RuntimeException runtimeException) {
             return runtimeException;
@@ -50,9 +50,5 @@ public final class GCPAsyncExceptionHandler {
             throw severeError;
         }
         return new CompletionException(cause);
-    }
-
-    public boolean isNotFound(StorageException error) {
-        return error.getCode() == 404;
     }
 }

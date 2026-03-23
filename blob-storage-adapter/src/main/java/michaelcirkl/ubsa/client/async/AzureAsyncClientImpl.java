@@ -10,7 +10,7 @@ import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.exception.azure.AzureAsyncExceptionHandler;
+import michaelcirkl.ubsa.client.exception.AzureExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.*;
 import reactor.core.publisher.Flux;
 
@@ -30,7 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 
 public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
-    private final AzureAsyncExceptionHandler exceptionHandler = new AzureAsyncExceptionHandler();
+    private final AzureExceptionHandler exceptionHandler = new AzureExceptionHandler();
     private final BlobServiceAsyncClient client;
 
     public AzureAsyncClientImpl(BlobServiceAsyncClient client) {
@@ -52,7 +52,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.getBlobContainerAsyncClient(bucketName)
                         .exists()
                         .toFuture()
@@ -65,7 +65,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         CompletableFuture<BlobProperties> propertiesFuture = blobClient.getProperties().toFuture();
         CompletableFuture<BinaryData> contentFuture = blobClient.downloadContent().toFuture();
 
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 propertiesFuture.thenCombine(contentFuture, (properties, content) -> Blob.builder()
                         .bucket(bucketName)
                         .key(blobKey)
@@ -91,7 +91,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Void> deleteBucket(String bucketName) {
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.getBlobContainerAsyncClient(bucketName)
                         .delete()
                         .toFuture()
@@ -100,7 +100,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Boolean> blobExists(String bucketName, String blobKey) {
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 blobClient(bucketName, blobKey)
                         .exists()
                         .toFuture()
@@ -111,7 +111,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     public CompletableFuture<String> createBlob(String bucketName, Blob blob) {
         BlobAsyncClient blobClient = blobClient(bucketName, blob.getKey());
         BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob);
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 blobClient.uploadWithResponse(uploadOptions)
                         .map(response -> response.getValue().getETag())
                         .toFuture()
@@ -123,7 +123,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         FileUploadValidators.validateSourceFile(sourceFile);
         BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
         BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString());
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 blobClient.uploadFromFileWithResponse(uploadOptions)
                         .map(response -> response.getValue().getETag())
                         .toFuture()
@@ -140,7 +140,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         Flux<ByteBuffer> flux = Flux.from(FlowPublisherBridge.toReactivePublisher(content));
         BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
         Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 blobClient.getBlockBlobAsyncClient()
                         .uploadWithResponse(flux, contentLength, headers, metadata, null, null, null)
                         .map(response -> response.getValue().getETag())
@@ -150,7 +150,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Void> deleteBlobIfExists(String bucketName, String blobKey) {
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 blobClient(bucketName, blobKey)
                         .deleteIfExists()
                         .then()
@@ -162,7 +162,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     public CompletableFuture<String> copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
         BlobAsyncClient sourceBlobClient = blobClient(sourceBucketName, sourceBlobKey);
         BlobAsyncClient destinationBlobClient = blobClient(destinationBucketName, destinationBlobKey);
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 destinationBlobClient.copyFromUrl(sourceBlobClient.getBlobUrl())
                         .flatMap(copyId -> destinationBlobClient.getProperties().map(BlobProperties::getETag))
                         .toFuture()
@@ -171,7 +171,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<List<Bucket>> listAllBuckets() {
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.listBlobContainers()
                         .collectList()
                         .map(containerItems -> {
@@ -201,7 +201,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
             options.setPrefix(prefix);
         }
 
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 containerClient.listBlobs(options, null)
                         .collectList()
                         .map(blobItems -> mapBlobsFromList(bucketName, containerClient, blobItems))
@@ -211,7 +211,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Void> createBucket(Bucket bucket) {
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.createBlobContainer(bucket.getName())
                         .then()
                         .toFuture()
@@ -225,7 +225,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Void> deleteBucketIfExists(String bucketName) {
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.getBlobContainerAsyncClient(bucketName)
                         .deleteIfExists()
                         .then()
@@ -238,7 +238,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         validateRange(startInclusive, endInclusive);
         BlobRange blobRange = new BlobRange(startInclusive, endInclusive - startInclusive + 1);
 
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 blobClient(bucketName, blobKey)
                         .downloadStreamWithResponse(blobRange, null, null, false)
                         .flatMap(response -> BinaryData.fromFlux(response.getValue()))

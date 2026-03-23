@@ -1,15 +1,23 @@
-package michaelcirkl.ubsa.client.exception.aws;
+package michaelcirkl.ubsa.client.exception;
 
-import michaelcirkl.ubsa.client.exception.UbsaException;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 
-public final class AWSAsyncExceptionHandler {
-    public <T> CompletableFuture<T> handle(CompletableFuture<T> future) {
+public final class AWSExceptionHandler {
+    public <T> T handle(Supplier<T> action) {
+        try {
+            return action.get();
+        } catch (S3Exception error) { // here can catch all specific S3 exception types and handle them
+            throw new UbsaException(error.getMessage(), error, error.statusCode());
+        }
+    }
+
+    public <T> CompletableFuture<T> handleAsync(CompletableFuture<T> future) {
         return future.handle((result, error) -> {
             if (error == null) {
                 return result;

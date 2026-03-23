@@ -3,7 +3,7 @@ package michaelcirkl.ubsa.client.async;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.exception.aws.AWSAsyncExceptionHandler;
+import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.*;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
@@ -34,7 +34,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
     private static final String PATH_STYLE_PROBE_KEY = "probe";
 
-    private final AWSAsyncExceptionHandler exceptionHandler = new AWSAsyncExceptionHandler();
+    private final AWSExceptionHandler exceptionHandler = new AWSExceptionHandler();
     private final S3AsyncClient client;
 
     public AWSAsyncClientImpl(S3AsyncClient client) {
@@ -58,21 +58,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {
         HeadBucketRequest request = HeadBucketRequest.builder().bucket(bucketName).build();
-        return client.headBucket(request)
-                .handle((response, error) -> {
-                    if (error == null) {
-                        return true;
-                    }
-
-                    Throwable cause = exceptionHandler.unwrap(error);
-                    if (cause instanceof S3Exception s3Exception) {
-                        if (exceptionHandler.isNotFound(s3Exception)) {
-                            return false;
-                        }
-                        throw exceptionHandler.wrap(s3Exception);
-                    }
-                    throw exceptionHandler.propagate(cause);
-                });
+        return handleExistsCheck(client.headBucket(request));
     }
 
     @Override
@@ -82,7 +68,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .key(blobKey)
                 .build();
 
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.getObject(request, AsyncResponseTransformer.toBytes())
                         .thenApply(responseBytes -> buildBlobFromGetObject(bucketName, blobKey, responseBytes))
         );
@@ -94,7 +80,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.getObject(request, AsyncResponseTransformer.toPublisher())
                         .thenApply(FlowPublisherBridge::toFlowPublisher)
         );
@@ -105,7 +91,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         DeleteBucketRequest request = DeleteBucketRequest.builder()
                 .bucket(bucketName)
                 .build();
-        return exceptionHandler.handle(client.deleteBucket(request).thenApply(response -> null));
+        return exceptionHandler.handleAsync(client.deleteBucket(request).thenApply(response -> null));
     }
 
     @Override
@@ -114,21 +100,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return client.headObject(request)
-                .handle((response, error) -> {
-                    if (error == null) {
-                        return true;
-                    }
-
-                    Throwable cause = exceptionHandler.unwrap(error);
-                    if (cause instanceof S3Exception s3Exception) {
-                        if (exceptionHandler.isNotFound(s3Exception)) {
-                            return false;
-                        }
-                        throw exceptionHandler.wrap(s3Exception);
-                    }
-                    throw exceptionHandler.propagate(cause);
-                });
+        return handleExistsCheck(client.headObject(request));
     }
 
     @Override
@@ -140,7 +112,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
         byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
         PutObjectRequest request = requestBuilder.build();
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.putObject(request, AsyncRequestBody.fromBytes(content))
                         .thenApply(PutObjectResponse::eTag)
         );
@@ -153,7 +125,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.putObject(request, AsyncRequestBody.fromFile(sourceFile))
                         .thenApply(PutObjectResponse::eTag)
         );
@@ -171,7 +143,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .key(blobKey)
                 .contentLength(contentLength);
         WriteOptionsMappers.applyOptionsToAwsPutObject(requestBuilder, options);
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.putObject(
                                 requestBuilder.build(),
                                 AsyncRequestBody.fromPublisher(FlowPublisherBridge.toReactivePublisher(content))
@@ -186,7 +158,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return exceptionHandler.handle(client.deleteObject(request).thenApply(response -> null));
+        return exceptionHandler.handleAsync(client.deleteObject(request).thenApply(response -> null));
     }
 
     @Override
@@ -197,7 +169,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .destinationBucket(destinationBucketName)
                 .destinationKey(destinationBlobKey)
                 .build();
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.copyObject(request)
                         .thenApply(CopyObjectResponse::copyObjectResult)
                         .thenApply(result -> result == null ? null : result.eTag())
@@ -206,7 +178,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<List<Bucket>> listAllBuckets() {
-        return exceptionHandler.handle(client.listBuckets().thenApply(this::mapBuckets));
+        return exceptionHandler.handleAsync(client.listBuckets().thenApply(this::mapBuckets));
     }
 
     @Override
@@ -216,7 +188,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         if (prefix != null && !prefix.isBlank()) {
             requestBuilder.prefix(prefix);
         }
-        return exceptionHandler.handle(listAllBlobs(bucketName, requestBuilder.build()));
+        return exceptionHandler.handleAsync(listAllBlobs(bucketName, requestBuilder.build()));
     }
 
     @Override
@@ -224,7 +196,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         CreateBucketRequest request = CreateBucketRequest.builder()
                 .bucket(bucket.getName())
                 .build();
-        return exceptionHandler.handle(client.createBucket(request).thenApply(response -> null));
+        return exceptionHandler.handleAsync(client.createBucket(request).thenApply(response -> null));
     }
 
     @Override
@@ -262,7 +234,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .key(blobKey)
                 .range(range)
                 .build();
-        return exceptionHandler.handle(
+        return exceptionHandler.handleAsync(
                 client.getObject(request, AsyncResponseTransformer.toBytes())
                         .thenApply(ResponseBytes::asByteArray)
         );
@@ -354,6 +326,23 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                                 return blobs;
                             });
                 });
+    }
+
+    private <T> CompletableFuture<Boolean> handleExistsCheck(CompletableFuture<T> future) {
+        return future.handle((result, error) -> {
+            if (error == null) {
+                return true;
+            }
+
+            Throwable cause = exceptionHandler.unwrap(error);
+            if (cause instanceof S3Exception s3Exception) {
+                if (exceptionHandler.isNotFound(s3Exception)) {
+                    return false;
+                }
+                throw exceptionHandler.wrap(s3Exception);
+            }
+            throw exceptionHandler.propagate(cause);
+        });
     }
 
     private Blob buildBlobFromGetObject(String bucketName, String blobKey, ResponseBytes<GetObjectResponse> responseBytes) {
