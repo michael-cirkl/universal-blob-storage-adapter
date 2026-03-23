@@ -19,6 +19,7 @@ import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,8 +38,9 @@ class AwsAsyncExceptionHandlingTest {
         CompletionException completionError = assertThrows(CompletionException.class, () -> adapter.getBlob("bucket", "blob").join());
         assertTrue(completionError.getCause() instanceof UbsaException);
         UbsaException error = (UbsaException) completionError.getCause();
-        assertEquals("Failed to get AWS blob s3://bucket/blob", error.getMessage());
-        assertEquals(0, error.getStatusCode());
+        assertEquals("boom", error.getMessage());
+        assertEquals(500, error.getStatusCode());
+        assertSame(failure, error.getCause());
     }
 
     @Test
@@ -62,8 +64,25 @@ class AwsAsyncExceptionHandlingTest {
         CompletionException completionError = assertThrows(CompletionException.class, () -> adapter.deleteBucketIfExists("bucket").join());
         assertTrue(completionError.getCause() instanceof UbsaException);
         UbsaException error = (UbsaException) completionError.getCause();
-        assertEquals("Failed to delete AWS bucket if exists: bucket", error.getMessage());
-        assertEquals(0, error.getStatusCode());
+        assertEquals("boom", error.getMessage());
+        assertEquals(500, error.getStatusCode());
+        assertSame(failure, error.getCause());
+    }
+
+    @Test
+    void generateGetUrlWrapsPresignerFailuresInUbsaException() {
+        S3AsyncClient client = mock(S3AsyncClient.class);
+        AWSAsyncClientImpl adapter = new AWSAsyncClientImpl(client);
+        S3Exception failure = s3Exception(503, "presign boom");
+        when(client.serviceClientConfiguration()).thenThrow(failure);
+
+        UbsaException error = assertThrows(
+                UbsaException.class,
+                () -> adapter.generateGetUrl("bucket", "blob", java.time.Duration.ofMinutes(1))
+        );
+        assertEquals("presign boom", error.getMessage());
+        assertEquals(503, error.getStatusCode());
+        assertSame(failure, error.getCause());
     }
 
     @Test

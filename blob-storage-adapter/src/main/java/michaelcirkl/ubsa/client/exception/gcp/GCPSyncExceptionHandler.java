@@ -1,10 +1,11 @@
-package michaelcirkl.ubsa.client.exception;
+package michaelcirkl.ubsa.client.exception.gcp;
 
 import com.google.cloud.storage.StorageException;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 
 import java.io.IOException;
 
-public class GCPExceptionHandler {
+public class GCPSyncExceptionHandler {
     public <T> T handle(IOSupplier<T> action) {
         try {
             return action.get();

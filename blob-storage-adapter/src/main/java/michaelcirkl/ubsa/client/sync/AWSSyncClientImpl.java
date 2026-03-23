@@ -2,7 +2,7 @@ package michaelcirkl.ubsa.client.sync;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
+import michaelcirkl.ubsa.client.exception.aws.AWSSyncExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
@@ -33,7 +33,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
     private static final String PATH_STYLE_PROBE_KEY = "probe";
 
-    private final AWSExceptionHandler exceptionHandler = new AWSExceptionHandler();
+    private final AWSSyncExceptionHandler exceptionHandler = new AWSSyncExceptionHandler();
     private final S3Client client;
 
     public AWSSyncClientImpl(S3Client client) {

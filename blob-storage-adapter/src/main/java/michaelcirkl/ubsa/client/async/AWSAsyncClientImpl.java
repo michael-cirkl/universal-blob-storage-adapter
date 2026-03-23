@@ -3,7 +3,7 @@ package michaelcirkl.ubsa.client.async;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.exception.UbsaException;
+import michaelcirkl.ubsa.client.exception.aws.AWSAsyncExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.*;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
@@ -28,13 +28,13 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 
 public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
     private static final String PATH_STYLE_PROBE_KEY = "probe";
 
+    private final AWSAsyncExceptionHandler exceptionHandler = new AWSAsyncExceptionHandler();
     private final S3AsyncClient client;
 
     public AWSAsyncClientImpl(S3AsyncClient client) {
@@ -63,11 +63,15 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                     if (error == null) {
                         return true;
                     }
-                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
-                    if (isNotFound(cause)) {
-                        return false;
+
+                    Throwable cause = exceptionHandler.unwrap(error);
+                    if (cause instanceof S3Exception s3Exception) {
+                        if (exceptionHandler.isNotFound(s3Exception)) {
+                            return false;
+                        }
+                        throw exceptionHandler.wrap(s3Exception);
                     }
-                    throw toCompletionException("Failed to check whether AWS bucket exists: " + bucketName, cause);
+                    throw exceptionHandler.propagate(cause);
                 });
     }
 
@@ -78,10 +82,9 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .key(blobKey)
                 .build();
 
-        return wrapS3Exception(
+        return exceptionHandler.handle(
                 client.getObject(request, AsyncResponseTransformer.toBytes())
-                        .thenApply(responseBytes -> buildBlobFromGetObject(bucketName, blobKey, responseBytes)),
-                "Failed to get AWS blob s3://" + bucketName + "/" + blobKey
+                        .thenApply(responseBytes -> buildBlobFromGetObject(bucketName, blobKey, responseBytes))
         );
     }
 
@@ -91,10 +94,9 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return wrapS3Exception(
+        return exceptionHandler.handle(
                 client.getObject(request, AsyncResponseTransformer.toPublisher())
-                        .thenApply(FlowPublisherBridge::toFlowPublisher),
-                "Failed to open AWS blob stream s3://" + bucketName + "/" + blobKey
+                        .thenApply(FlowPublisherBridge::toFlowPublisher)
         );
     }
 
@@ -103,10 +105,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         DeleteBucketRequest request = DeleteBucketRequest.builder()
                 .bucket(bucketName)
                 .build();
-        return wrapS3Exception(
-                client.deleteBucket(request).thenApply(response -> null),
-                "Failed to delete AWS bucket: " + bucketName
-        );
+        return exceptionHandler.handle(client.deleteBucket(request).thenApply(response -> null));
     }
 
     @Override
@@ -120,14 +119,15 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                     if (error == null) {
                         return true;
                     }
-                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
-                    if (isNotFound(cause)) {
-                        return false;
+
+                    Throwable cause = exceptionHandler.unwrap(error);
+                    if (cause instanceof S3Exception s3Exception) {
+                        if (exceptionHandler.isNotFound(s3Exception)) {
+                            return false;
+                        }
+                        throw exceptionHandler.wrap(s3Exception);
                     }
-                    throw toCompletionException(
-                            "Failed to check whether AWS blob exists: s3://" + bucketName + "/" + blobKey,
-                            cause
-                    );
+                    throw exceptionHandler.propagate(cause);
                 });
     }
 
@@ -140,10 +140,9 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
         byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
         PutObjectRequest request = requestBuilder.build();
-        return wrapS3Exception(
+        return exceptionHandler.handle(
                 client.putObject(request, AsyncRequestBody.fromBytes(content))
-                        .thenApply(PutObjectResponse::eTag),
-                "Failed to create AWS blob s3://" + bucketName + "/" + blob.getKey()
+                        .thenApply(PutObjectResponse::eTag)
         );
     }
 
@@ -154,10 +153,9 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return wrapS3Exception(
+        return exceptionHandler.handle(
                 client.putObject(request, AsyncRequestBody.fromFile(sourceFile))
-                        .thenApply(PutObjectResponse::eTag),
-                "Failed to create AWS blob s3://" + bucketName + "/" + blobKey + " from file"
+                        .thenApply(PutObjectResponse::eTag)
         );
     }
 
@@ -173,13 +171,12 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .key(blobKey)
                 .contentLength(contentLength);
         WriteOptionsMappers.applyOptionsToAwsPutObject(requestBuilder, options);
-        return wrapS3Exception(
+        return exceptionHandler.handle(
                 client.putObject(
                                 requestBuilder.build(),
                                 AsyncRequestBody.fromPublisher(FlowPublisherBridge.toReactivePublisher(content))
                         )
-                        .thenApply(PutObjectResponse::eTag),
-                "Failed to stream-create AWS blob s3://" + bucketName + "/" + blobKey
+                        .thenApply(PutObjectResponse::eTag)
         );
     }
 
@@ -189,10 +186,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .bucket(bucketName)
                 .key(blobKey)
                 .build();
-        return wrapS3Exception(
-                client.deleteObject(request).thenApply(response -> null),
-                "Failed to delete AWS blob s3://" + bucketName + "/" + blobKey
-        );
+        return exceptionHandler.handle(client.deleteObject(request).thenApply(response -> null));
     }
 
     @Override
@@ -203,21 +197,16 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .destinationBucket(destinationBucketName)
                 .destinationKey(destinationBlobKey)
                 .build();
-        return wrapS3Exception(
+        return exceptionHandler.handle(
                 client.copyObject(request)
                         .thenApply(CopyObjectResponse::copyObjectResult)
-                        .thenApply(result -> result == null ? null : result.eTag()),
-                "Failed to copy AWS blob from s3://" + sourceBucketName + "/" + sourceBlobKey
-                        + " to s3://" + destinationBucketName + "/" + destinationBlobKey
+                        .thenApply(result -> result == null ? null : result.eTag())
         );
     }
 
     @Override
     public CompletableFuture<List<Bucket>> listAllBuckets() {
-        return wrapS3Exception(
-                client.listBuckets().thenApply(this::mapBuckets),
-                "Failed to list AWS buckets"
-        );
+        return exceptionHandler.handle(client.listBuckets().thenApply(this::mapBuckets));
     }
 
     @Override
@@ -227,10 +216,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         if (prefix != null && !prefix.isBlank()) {
             requestBuilder.prefix(prefix);
         }
-        return wrapS3Exception(
-                listAllBlobs(bucketName, requestBuilder.build()),
-                "Failed to list AWS blobs in bucket " + bucketName
-        );
+        return exceptionHandler.handle(listAllBlobs(bucketName, requestBuilder.build()));
     }
 
     @Override
@@ -238,10 +224,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         CreateBucketRequest request = CreateBucketRequest.builder()
                 .bucket(bucket.getName())
                 .build();
-        return wrapS3Exception(
-                client.createBucket(request).thenApply(response -> null),
-                "Failed to create AWS bucket " + bucket.getName()
-        );
+        return exceptionHandler.handle(client.createBucket(request).thenApply(response -> null));
     }
 
     @Override
@@ -259,11 +242,15 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                     if (error == null) {
                         return null;
                     }
-                    Throwable cause = StreamErrorAdapters.unwrapCompletionException(error);
-                    if (isNotFound(cause)) {
-                        return null;
+
+                    Throwable cause = exceptionHandler.unwrap(error);
+                    if (cause instanceof S3Exception s3Exception) {
+                        if (exceptionHandler.isNotFound(s3Exception)) {
+                            return null;
+                        }
+                        throw exceptionHandler.wrap(s3Exception);
                     }
-                    throw toCompletionException("Failed to delete AWS bucket if exists: " + bucketName, cause);
+                    throw exceptionHandler.propagate(cause);
                 });
     }
 
@@ -275,15 +262,14 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .key(blobKey)
                 .range(range)
                 .build();
-        return wrapS3Exception(
+        return exceptionHandler.handle(
                 client.getObject(request, AsyncResponseTransformer.toBytes())
-                        .thenApply(ResponseBytes::asByteArray),
-                "Failed to read byte range from AWS blob s3://" + bucketName + "/" + blobKey
+                        .thenApply(ResponseBytes::asByteArray)
         );
     }
 
     @Override
-    public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {
+    public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucket)
@@ -295,14 +281,14 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .build();
         try (S3Presigner presigner = createPresignerFromClientConfig()) {
             PresignedGetObjectRequest presigned = presigner.presignGetObject(presignRequest);
-            return CompletableFuture.completedFuture(presigned.url());
+            return presigned.url();
         } catch (S3Exception error) {
-            throw new UbsaException("Failed to generate AWS GET URL for s3://" + bucket + "/" + objectKey, error);
+            throw exceptionHandler.wrap(error);
         }
     }
 
     @Override
-    public CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+    public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
         validateExpiry(expiry);
         PutObjectRequest.Builder putBuilder = PutObjectRequest.builder()
                 .bucket(bucket)
@@ -316,9 +302,9 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .build();
         try (S3Presigner presigner = createPresignerFromClientConfig()) {
             PresignedPutObjectRequest presigned = presigner.presignPutObject(presignRequest);
-            return CompletableFuture.completedFuture(presigned.url());
+            return presigned.url();
         } catch (S3Exception error) {
-            throw new UbsaException("Failed to generate AWS PUT URL for s3://" + bucket + "/" + objectKey, error);
+            throw exceptionHandler.wrap(error);
         }
     }
 
@@ -397,14 +383,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         return URI.create(uri);
     }
 
-    private boolean isNotFound(Throwable error) {
-        if (error instanceof NoSuchBucketException || error instanceof NoSuchKeyException) {
-            return true;
-        }
-        return error instanceof S3Exception s3Exception
-                && s3Exception.statusCode() == 404;
-    }
-
     private boolean isPreconditionFailed(Throwable error) {
         return error instanceof S3Exception s3Exception
                 && s3Exception.statusCode() == 412;
@@ -420,14 +398,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         } catch (DateTimeParseException ignored) {
             return null;
         }
-    }
-
-    private <T> CompletableFuture<T> wrapS3Exception(CompletableFuture<T> future, String message) {
-        return StreamErrorAdapters.wrapUbsaFuture(future, message, S3Exception.class);
-    }
-
-    private CompletionException toCompletionException(String message, Throwable cause) {
-        return StreamErrorAdapters.toCompletionException(message, cause, S3Exception.class);
     }
 
     private void validateExpiry(Duration expiry) {

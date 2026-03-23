@@ -52,8 +52,8 @@ public interface BlobStorageAsyncClient {
 
     CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive);
 
-    CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry);
+    URL generateGetUrl(String bucket, String objectKey, Duration expiry);
 
-    CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
+    URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
 
 }

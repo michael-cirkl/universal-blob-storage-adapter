@@ -93,8 +93,8 @@ public class AwsAsyncMain {
                     .build());
             System.out.println("Native SDK object URL via unwrap: " + nativeObjectUrl);
 
-            URL presignedPut = client.generatePutUrl(bucketName, "example", Duration.ofMinutes(10), "text/plain").get();
-            URL presignedGet = client.generateGetUrl(bucketName, "example", Duration.ofMinutes(10)).get();
+            URL presignedPut = client.generatePutUrl(bucketName, "example", Duration.ofMinutes(10), "text/plain");
+            URL presignedGet = client.generateGetUrl(bucketName, "example", Duration.ofMinutes(10));
             System.out.println("Presigned PUT URL: " + presignedPut);
             System.out.println("Presigned GET URL: " + presignedGet);
 

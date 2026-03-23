@@ -55,8 +55,8 @@ public class GCPAsyncMain {
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));
 
             try {
-                URL putUrl = client.generatePutUrl(bucketName, blobKey, Duration.ofMinutes(10), "text/plain").get();
-                URL getUrl = client.generateGetUrl(bucketName, blobKey, Duration.ofMinutes(10)).get();
+                URL putUrl = client.generatePutUrl(bucketName, blobKey, Duration.ofMinutes(10), "text/plain");
+                URL getUrl = client.generateGetUrl(bucketName, blobKey, Duration.ofMinutes(10));
                 System.out.println("Signed PUT URL: " + putUrl);
                 System.out.println("Signed GET URL: " + getUrl);
             } catch (Exception signingError) {

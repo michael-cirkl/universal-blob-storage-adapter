@@ -11,7 +11,7 @@ import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.exception.AzureExceptionHandler;
+import michaelcirkl.ubsa.client.exception.azure.AzureSyncExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 public class AzureSyncClientImpl implements BlobStorageSyncClient {
-    private final AzureExceptionHandler exceptionHandler = new AzureExceptionHandler();
+    private final AzureSyncExceptionHandler exceptionHandler = new AzureSyncExceptionHandler();
     private final BlobServiceClient client;
 
     public AzureSyncClientImpl(BlobServiceClient client) {

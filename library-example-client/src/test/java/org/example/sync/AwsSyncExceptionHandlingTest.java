@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -26,7 +26,8 @@ class AwsSyncExceptionHandlingTest {
 
         UbsaException error = assertThrows(UbsaException.class, () -> adapter.getBlob("bucket", "blob"));
         assertEquals(failure.getMessage(), error.getMessage());
-        assertNull(error.getCause());
+        assertEquals(500, error.getStatusCode());
+        assertSame(failure, error.getCause());
     }
 
     @Test
@@ -47,12 +48,14 @@ class AwsSyncExceptionHandlingTest {
 
         UbsaException error = assertThrows(UbsaException.class, () -> adapter.deleteBucketIfExists("bucket"));
         assertEquals(failure.getMessage(), error.getMessage());
-        assertNull(error.getCause());
+        assertEquals(500, error.getStatusCode());
+        assertSame(failure, error.getCause());
     }
 
     private static S3Exception s3Exception(int statusCode) {
         S3Exception.Builder builder = S3Exception.builder();
         builder.statusCode(statusCode);
+        builder.message("aws error " + statusCode);
         return (S3Exception) builder.build();
     }
 }

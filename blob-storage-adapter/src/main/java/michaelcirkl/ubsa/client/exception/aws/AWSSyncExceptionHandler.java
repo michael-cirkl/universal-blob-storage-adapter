@@ -1,10 +1,11 @@
-package michaelcirkl.ubsa.client.exception;
+package michaelcirkl.ubsa.client.exception.aws;
 
+import michaelcirkl.ubsa.client.exception.UbsaException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.util.function.Supplier;
 
-public final class AWSExceptionHandler {
+public final class AWSSyncExceptionHandler {
     public <T> T handle(Supplier<T> action) {
         try {
             return action.get();

@@ -54,8 +54,8 @@ public class AzureAsyncMain {
             byte[] content = client.getBlob(bucketName, blobKey).get().getContent();
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));
 
-            URL putUrl = client.generatePutUrl(bucketName, blobKey, Duration.ofMinutes(10), "text/plain").get();
-            URL getUrl = client.generateGetUrl(bucketName, blobKey, Duration.ofMinutes(10)).get();
+            URL putUrl = client.generatePutUrl(bucketName, blobKey, Duration.ofMinutes(10), "text/plain");
+            URL getUrl = client.generateGetUrl(bucketName, blobKey, Duration.ofMinutes(10));
             System.out.println("SAS PUT URL: " + putUrl);
             System.out.println("SAS GET URL: " + getUrl);
         } finally {

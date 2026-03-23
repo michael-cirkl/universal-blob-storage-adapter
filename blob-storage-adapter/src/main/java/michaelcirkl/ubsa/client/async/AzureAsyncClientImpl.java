@@ -10,7 +10,7 @@ import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
-import michaelcirkl.ubsa.client.exception.UbsaException;
+import michaelcirkl.ubsa.client.exception.azure.AzureAsyncExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.*;
 import reactor.core.publisher.Flux;
 
@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 
 public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
+    private final AzureAsyncExceptionHandler exceptionHandler = new AzureAsyncExceptionHandler();
     private final BlobServiceAsyncClient client;
 
     public AzureAsyncClientImpl(BlobServiceAsyncClient client) {
@@ -51,11 +52,10 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Boolean> bucketExists(String bucketName) {
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 client.getBlobContainerAsyncClient(bucketName)
                         .exists()
-                        .toFuture(),
-                "Failed to check whether Azure container exists: " + bucketName
+                        .toFuture()
         );
     }
 
@@ -65,7 +65,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         CompletableFuture<BlobProperties> propertiesFuture = blobClient.getProperties().toFuture();
         CompletableFuture<BinaryData> contentFuture = blobClient.downloadContent().toFuture();
 
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 propertiesFuture.thenCombine(contentFuture, (properties, content) -> Blob.builder()
                         .bucket(bucketName)
                         .key(blobKey)
@@ -77,8 +77,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                         .userMetadata(properties.getMetadata())
                         .publicURI(toUri(blobClient.getBlobUrl()))
                         .expires(toLocalDateTime(properties.getExpiresOn()))
-                        .build()),
-                "Failed to get Azure blob " + bucketName + "/" + blobKey
+                        .build())
         );
     }
 
@@ -92,21 +91,19 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Void> deleteBucket(String bucketName) {
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 client.getBlobContainerAsyncClient(bucketName)
                         .delete()
-                        .toFuture(),
-                "Failed to delete Azure container: " + bucketName
+                        .toFuture()
         );
     }
 
     @Override
     public CompletableFuture<Boolean> blobExists(String bucketName, String blobKey) {
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 blobClient(bucketName, blobKey)
                         .exists()
-                        .toFuture(),
-                "Failed to check whether Azure blob exists: " + bucketName + "/" + blobKey
+                        .toFuture()
         );
     }
 
@@ -114,11 +111,10 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     public CompletableFuture<String> createBlob(String bucketName, Blob blob) {
         BlobAsyncClient blobClient = blobClient(bucketName, blob.getKey());
         BlobParallelUploadOptions uploadOptions = WriteOptionsMappers.buildAzureUploadOptions(blob);
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 blobClient.uploadWithResponse(uploadOptions)
                         .map(response -> response.getValue().getETag())
-                        .toFuture(),
-                "Failed to create Azure blob " + bucketName + "/" + blob.getKey()
+                        .toFuture()
         );
     }
 
@@ -127,11 +123,10 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         FileUploadValidators.validateSourceFile(sourceFile);
         BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
         BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString());
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 blobClient.uploadFromFileWithResponse(uploadOptions)
                         .map(response -> response.getValue().getETag())
-                        .toFuture(),
-                "Failed to create Azure blob " + bucketName + "/" + blobKey + " from file"
+                        .toFuture()
         );
     }
 
@@ -145,23 +140,21 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         Flux<ByteBuffer> flux = Flux.from(FlowPublisherBridge.toReactivePublisher(content));
         BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
         Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 blobClient.getBlockBlobAsyncClient()
                         .uploadWithResponse(flux, contentLength, headers, metadata, null, null, null)
                         .map(response -> response.getValue().getETag())
-                        .toFuture(),
-                "Failed to stream-create Azure blob " + bucketName + "/" + blobKey
+                        .toFuture()
         );
     }
 
     @Override
     public CompletableFuture<Void> deleteBlobIfExists(String bucketName, String blobKey) {
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 blobClient(bucketName, blobKey)
                         .deleteIfExists()
                         .then()
-                        .toFuture(),
-                "Failed to delete Azure blob " + bucketName + "/" + blobKey
+                        .toFuture()
         );
     }
 
@@ -169,18 +162,16 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     public CompletableFuture<String> copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
         BlobAsyncClient sourceBlobClient = blobClient(sourceBucketName, sourceBlobKey);
         BlobAsyncClient destinationBlobClient = blobClient(destinationBucketName, destinationBlobKey);
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 destinationBlobClient.copyFromUrl(sourceBlobClient.getBlobUrl())
                         .flatMap(copyId -> destinationBlobClient.getProperties().map(BlobProperties::getETag))
-                        .toFuture(),
-                "Failed to copy Azure blob from " + sourceBucketName + "/" + sourceBlobKey
-                        + " to " + destinationBucketName + "/" + destinationBlobKey
+                        .toFuture()
         );
     }
 
     @Override
     public CompletableFuture<List<Bucket>> listAllBuckets() {
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 client.listBlobContainers()
                         .collectList()
                         .map(containerItems -> {
@@ -198,8 +189,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                             });
                             return buckets;
                         })
-                        .toFuture(),
-                "Failed to list Azure containers"
+                        .toFuture()
         );
     }
 
@@ -211,22 +201,20 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
             options.setPrefix(prefix);
         }
 
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 containerClient.listBlobs(options, null)
                         .collectList()
                         .map(blobItems -> mapBlobsFromList(bucketName, containerClient, blobItems))
-                        .toFuture(),
-                "Failed to list Azure blobs in container " + bucketName
+                        .toFuture()
         );
     }
 
     @Override
     public CompletableFuture<Void> createBucket(Bucket bucket) {
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 client.createBlobContainer(bucket.getName())
                         .then()
-                        .toFuture(),
-                "Failed to create Azure container " + bucket.getName()
+                        .toFuture()
         );
     }
 
@@ -237,12 +225,11 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Void> deleteBucketIfExists(String bucketName) {
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 client.getBlobContainerAsyncClient(bucketName)
                         .deleteIfExists()
                         .then()
-                        .toFuture(),
-                "Failed to delete Azure container if exists: " + bucketName
+                        .toFuture()
         );
     }
 
@@ -251,20 +238,19 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         validateRange(startInclusive, endInclusive);
         BlobRange blobRange = new BlobRange(startInclusive, endInclusive - startInclusive + 1);
 
-        return wrapBlobStorageException(
+        return exceptionHandler.handle(
                 blobClient(bucketName, blobKey)
                         .downloadStreamWithResponse(blobRange, null, null, false)
                         .flatMap(response -> BinaryData.fromFlux(response.getValue()))
                         .map(BinaryData::toBytes)
-                        .toFuture(),
-                "Failed to read byte range from Azure blob " + bucketName + "/" + blobKey
+                        .toFuture()
         );
     }
 
 
 
     @Override
-    public CompletableFuture<URL> generateGetUrl(String bucket, String objectKey, Duration expiry) {
+    public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
         try {
             var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
@@ -272,14 +258,14 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                     .setReadPermission(true);
             BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
             String sas = blobClient.generateSas(values);
-            return CompletableFuture.completedFuture(buildSasUrl(blobClient.getBlobUrl(), sas));
+            return buildSasUrl(blobClient.getBlobUrl(), sas);
         } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to generate Azure GET URL for " + bucket + "/" + objectKey, error);
+            throw exceptionHandler.wrap(error);
         }
     }
 
     @Override
-    public CompletableFuture<URL> generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+    public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
         validateExpiry(expiry);
         try {
             var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
@@ -288,9 +274,9 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                     .setWritePermission(true);
             BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
             String sas = blobClient.generateSas(values);
-            return CompletableFuture.completedFuture(buildSasUrl(blobClient.getBlobUrl(), sas));
+            return buildSasUrl(blobClient.getBlobUrl(), sas);
         } catch (BlobStorageException error) {
-            throw new UbsaException("Failed to generate Azure PUT URL for " + bucket + "/" + objectKey, error);
+            throw exceptionHandler.wrap(error);
         }
     }
 
@@ -346,9 +332,5 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
-    }
-
-    private <T> CompletableFuture<T> wrapBlobStorageException(CompletableFuture<T> future, String message) {
-        return StreamErrorAdapters.wrapUbsaFuture(future, message, BlobStorageException.class);
     }
 }

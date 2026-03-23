@@ -1,10 +1,11 @@
-package michaelcirkl.ubsa.client.exception;
+package michaelcirkl.ubsa.client.exception.azure;
 
 import com.azure.storage.blob.models.BlobStorageException;
+import michaelcirkl.ubsa.client.exception.UbsaException;
 
 import java.util.function.Supplier;
 
-public class AzureExceptionHandler {
+public class AzureSyncExceptionHandler {
     public <T> T handle(Supplier<T> action) {
         try {
             return action.get();
