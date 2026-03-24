@@ -3,6 +3,8 @@ package michaelcirkl.ubsa.client.async;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.util.AwsClientSupport;
 import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.*;
@@ -16,7 +18,6 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 
@@ -167,18 +168,43 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<List<Bucket>> listAllBuckets() {
-        return exceptionHandler.handleAsync(client.listBuckets().thenApply(AwsClientSupport::mapBuckets));
+    public CompletableFuture<ListingPage<Bucket>> listBuckets(PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
+        ListBucketsRequest.Builder requestBuilder = ListBucketsRequest.builder();
+        if (pageRequest.getPageSize() != null) {
+            requestBuilder.maxBuckets(pageRequest.getPageSize());
+        }
+        if (pageRequest.getContinuationToken() != null) {
+            requestBuilder.continuationToken(pageRequest.getContinuationToken());
+        }
+
+        return exceptionHandler.handleAsync(
+                client.listBuckets(requestBuilder.build())
+                        .thenApply(response -> ListingPage.of(AwsClientSupport.mapBuckets(response), response.continuationToken()))
+        );
     }
 
     @Override
-    public CompletableFuture<List<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
+    public CompletableFuture<ListingPage<Blob>> listBlobs(String bucketName, String prefix, PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
         ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
                 .bucket(bucketName);
         if (prefix != null && !prefix.isBlank()) {
             requestBuilder.prefix(prefix);
         }
-        return exceptionHandler.handleAsync(listAllBlobs(bucketName, requestBuilder.build()));
+        if (pageRequest.getPageSize() != null) {
+            requestBuilder.maxKeys(pageRequest.getPageSize());
+        }
+        if (pageRequest.getContinuationToken() != null) {
+            requestBuilder.continuationToken(pageRequest.getContinuationToken());
+        }
+        return exceptionHandler.handleAsync(
+                client.listObjectsV2(requestBuilder.build())
+                        .thenApply(response -> ListingPage.of(
+                                AwsClientSupport.mapBlobsFromList(bucketName, response),
+                                response.nextContinuationToken()
+                        ))
+        );
     }
 
     @Override
@@ -187,11 +213,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 .bucket(bucket.getName())
                 .build();
         return exceptionHandler.handleAsync(client.createBucket(request).thenApply(response -> null));
-    }
-
-    @Override
-    public CompletableFuture<List<Blob>> getAllBlobsInBucket(String bucketName) {
-        return listBlobsByPrefix(bucketName, null);
     }
 
     @Override
@@ -243,25 +264,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         return exceptionHandler.handle(() -> AwsClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig));
     }
 
-    private CompletableFuture<List<Blob>> listAllBlobs(String bucketName, ListObjectsV2Request request) {
-        return client.listObjectsV2(request)
-                .thenCompose(response -> {
-                    List<Blob> blobs = AwsClientSupport.mapBlobsFromList(bucketName, response);
-                    if (!response.isTruncated()) {
-                        return CompletableFuture.completedFuture(blobs);
-                    }
-
-                    ListObjectsV2Request nextRequest = request.toBuilder()
-                            .continuationToken(response.nextContinuationToken())
-                            .build();
-                    return listAllBlobs(bucketName, nextRequest)
-                            .thenApply(nextPageBlobs -> {
-                                blobs.addAll(nextPageBlobs);
-                                return blobs;
-                            });
-                });
-    }
-
     private <T> CompletableFuture<Boolean> handleExistsCheck(CompletableFuture<T> future) {
         return future.handle((result, error) -> {
             if (error == null) {
@@ -297,5 +299,9 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                 client.serviceClientConfiguration(),
                 () -> client.utilities().getUrl(AwsClientSupport.pathStyleProbeRequest())
         );
+    }
+
+    private PageRequest normalizePageRequest(PageRequest request) {
+        return request == null ? PageRequest.firstPage() : request;
     }
 }

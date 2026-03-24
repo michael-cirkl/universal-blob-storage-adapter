@@ -14,6 +14,8 @@ import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.GCPExceptionHandler;
 import michaelcirkl.ubsa.client.exception.UbsaException;
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.*;
 
 import java.io.IOException;
@@ -169,33 +171,23 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<List<Bucket>> listAllBuckets() {
+    public CompletableFuture<ListingPage<Bucket>> listBuckets(PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
         return exceptionHandler.handleAsync(
                 CompletableFuture.supplyAsync(() -> {
-                    List<Bucket> buckets = new ArrayList<>();
-                    Page<com.google.cloud.storage.Bucket> bucketPage = client.list(BucketListOption.pageSize(1000));
-                    bucketPage.iterateAll().forEach(gcsBucket -> {
-                        LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
-                        buckets.add(Bucket.builder()
-                                .name(gcsBucket.getName())
-                                .publicURI(toGsUri(gcsBucket.getName(), null))
-                                .creationDate(created)
-                                .lastModified(created)
-                                .build());
-                    });
-                    return buckets;
+                    Page<com.google.cloud.storage.Bucket> bucketPage = client.list(buildBucketListOptions(pageRequest));
+                    return ListingPage.of(mapBuckets(bucketPage.getValues()), bucketPage.getNextPageToken());
                 }, IO_EXECUTOR)
         );
     }
 
     @Override
-    public CompletableFuture<List<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
+    public CompletableFuture<ListingPage<Blob>> listBlobs(String bucketName, String prefix, PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
         return exceptionHandler.handleAsync(
                 CompletableFuture.supplyAsync(() -> {
-                    Page<com.google.cloud.storage.Blob> blobPage = (prefix != null && !prefix.isBlank())
-                            ? client.list(bucketName, BlobListOption.prefix(prefix))
-                            : client.list(bucketName);
-                    return mapBlobsFromPage(bucketName, blobPage);
+                    Page<com.google.cloud.storage.Blob> blobPage = client.list(bucketName, buildBlobListOptions(prefix, pageRequest));
+                    return ListingPage.of(mapBlobsFromPage(bucketName, blobPage.getValues()), blobPage.getNextPageToken());
                 }, IO_EXECUTOR)
         );
     }
@@ -205,11 +197,6 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         return exceptionHandler.handleAsync(
                 CompletableFuture.runAsync(() -> client.create(BucketInfo.of(bucket.getName())), IO_EXECUTOR)
         );
-    }
-
-    @Override
-    public CompletableFuture<List<Blob>> getAllBlobsInBucket(String bucketName) {
-        return listBlobsByPrefix(bucketName, null);
     }
 
     @Override
@@ -348,9 +335,23 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         return blobBuilder.build();
     }
 
-    private List<Blob> mapBlobsFromPage(String bucketName, Page<com.google.cloud.storage.Blob> blobPage) {
+    private List<Bucket> mapBuckets(Iterable<com.google.cloud.storage.Bucket> bucketItems) {
+        List<Bucket> buckets = new ArrayList<>();
+        bucketItems.forEach(gcsBucket -> {
+            LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
+            buckets.add(Bucket.builder()
+                    .name(gcsBucket.getName())
+                    .publicURI(toGsUri(gcsBucket.getName(), null))
+                    .creationDate(created)
+                    .lastModified(created)
+                    .build());
+        });
+        return buckets;
+    }
+
+    private List<Blob> mapBlobsFromPage(String bucketName, Iterable<com.google.cloud.storage.Blob> blobItems) {
         List<Blob> blobs = new ArrayList<>();
-        blobPage.iterateAll().forEach(gcsBlob -> blobs.add(Blob.builder()
+        blobItems.forEach(gcsBlob -> blobs.add(Blob.builder()
                 .bucket(bucketName)
                 .key(gcsBlob.getName())
                 .size(gcsBlob.getSize())
@@ -361,6 +362,31 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                 .publicURI(toGsUri(bucketName, gcsBlob.getName()))
                 .build()));
         return blobs;
+    }
+
+    private BucketListOption[] buildBucketListOptions(PageRequest request) {
+        List<BucketListOption> options = new ArrayList<>();
+        if (request.getPageSize() != null) {
+            options.add(BucketListOption.pageSize(request.getPageSize()));
+        }
+        if (request.getContinuationToken() != null) {
+            options.add(BucketListOption.pageToken(request.getContinuationToken()));
+        }
+        return options.toArray(BucketListOption[]::new);
+    }
+
+    private BlobListOption[] buildBlobListOptions(String prefix, PageRequest request) {
+        List<BlobListOption> options = new ArrayList<>();
+        if (prefix != null && !prefix.isBlank()) {
+            options.add(BlobListOption.prefix(prefix));
+        }
+        if (request.getPageSize() != null) {
+            options.add(BlobListOption.pageSize(request.getPageSize()));
+        }
+        if (request.getContinuationToken() != null) {
+            options.add(BlobListOption.pageToken(request.getContinuationToken()));
+        }
+        return options.toArray(BlobListOption[]::new);
     }
 
     private LocalDateTime toLocalDateTime(OffsetDateTime time) {
@@ -393,5 +419,9 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         } catch (IOException ignored) {
 
         }
+    }
+
+    private PageRequest normalizePageRequest(PageRequest request) {
+        return request == null ? PageRequest.firstPage() : request;
     }
 }

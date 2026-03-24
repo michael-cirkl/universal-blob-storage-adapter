@@ -1,5 +1,6 @@
 package michaelcirkl.ubsa.client.async;
 
+import com.azure.core.http.rest.PagedResponse;
 import com.azure.core.util.BinaryData;
 import com.azure.storage.blob.BlobAsyncClient;
 import com.azure.storage.blob.BlobContainerAsyncClient;
@@ -11,8 +12,11 @@ import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.AzureExceptionHandler;
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -171,41 +175,38 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public CompletableFuture<List<Bucket>> listAllBuckets() {
+    public CompletableFuture<ListingPage<Bucket>> listBuckets(PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
+        Mono<PagedResponse<BlobContainerItem>> pageMono = pageRequest.getPageSize() == null
+                ? client.listBlobContainers().byPage(pageRequest.getContinuationToken()).next()
+                : client.listBlobContainers().byPage(pageRequest.getContinuationToken(), pageRequest.getPageSize()).next();
         return exceptionHandler.handleAsync(
-                client.listBlobContainers()
-                        .collectList()
-                        .map(containerItems -> {
-                            List<Bucket> buckets = new ArrayList<>();
-                            containerItems.forEach(item -> {
-                                OffsetDateTime lastModified = item.getProperties() == null
-                                        ? null
-                                        : item.getProperties().getLastModified();
-                                buckets.add(Bucket.builder()
-                                        .name(item.getName())
-                                        .publicURI(toUri(client.getBlobContainerAsyncClient(item.getName()).getBlobContainerUrl()))
-                                        .creationDate(null) // Not supported by azure
-                                        .lastModified(toLocalDateTime(lastModified))
-                                        .build());
-                            });
-                            return buckets;
-                        })
+                pageMono
+                        .map(page -> ListingPage.of(mapBuckets(page.getElements()), page.getContinuationToken()))
+                        .defaultIfEmpty(ListingPage.of(List.of(), null))
                         .toFuture()
         );
     }
 
     @Override
-    public CompletableFuture<List<Blob>> listBlobsByPrefix(String bucketName, String prefix) {
+    public CompletableFuture<ListingPage<Blob>> listBlobs(String bucketName, String prefix, PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
         BlobContainerAsyncClient containerClient = client.getBlobContainerAsyncClient(bucketName);
         ListBlobsOptions options = new ListBlobsOptions();
         if (prefix != null && !prefix.isBlank()) {
             options.setPrefix(prefix);
         }
+        Mono<PagedResponse<BlobItem>> pageMono = pageRequest.getPageSize() == null
+                ? containerClient.listBlobs(options, null).byPage(pageRequest.getContinuationToken()).next()
+                : containerClient.listBlobs(options, null).byPage(pageRequest.getContinuationToken(), pageRequest.getPageSize()).next();
 
         return exceptionHandler.handleAsync(
-                containerClient.listBlobs(options, null)
-                        .collectList()
-                        .map(blobItems -> mapBlobsFromList(bucketName, containerClient, blobItems))
+                pageMono
+                        .map(page -> ListingPage.of(
+                                mapBlobsFromList(bucketName, containerClient, page.getElements()),
+                                page.getContinuationToken()
+                        ))
+                        .defaultIfEmpty(ListingPage.of(List.of(), null))
                         .toFuture()
         );
     }
@@ -217,11 +218,6 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                         .then()
                         .toFuture()
         );
-    }
-
-    @Override
-    public CompletableFuture<List<Blob>> getAllBlobsInBucket(String bucketName) {
-        return listBlobsByPrefix(bucketName, null);
     }
 
     @Override
@@ -281,7 +277,23 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         return client.getBlobContainerAsyncClient(bucketName).getBlobAsyncClient(blobKey);
     }
 
-    private List<Blob> mapBlobsFromList(String bucketName, BlobContainerAsyncClient containerClient, java.util.List<BlobItem> blobItems) {
+    private List<Bucket> mapBuckets(Iterable<BlobContainerItem> containerItems) {
+        List<Bucket> buckets = new ArrayList<>();
+        containerItems.forEach(item -> {
+            OffsetDateTime lastModified = item.getProperties() == null
+                    ? null
+                    : item.getProperties().getLastModified();
+            buckets.add(Bucket.builder()
+                    .name(item.getName())
+                    .publicURI(toUri(client.getBlobContainerAsyncClient(item.getName()).getBlobContainerUrl()))
+                    .creationDate(null) // Not supported by azure
+                    .lastModified(toLocalDateTime(lastModified))
+                    .build());
+        });
+        return buckets;
+    }
+
+    private List<Blob> mapBlobsFromList(String bucketName, BlobContainerAsyncClient containerClient, Iterable<BlobItem> blobItems) {
         List<Blob> blobs = new ArrayList<>();
         blobItems.forEach(item -> {
             BlobItemProperties properties = item.getProperties();
@@ -329,5 +341,9 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
+    }
+
+    private PageRequest normalizePageRequest(PageRequest request) {
+        return request == null ? PageRequest.firstPage() : request;
     }
 }

@@ -1,12 +1,14 @@
 package michaelcirkl.ubsa;
 
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PagedIterable;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.List;
 
 public interface BlobStorageSyncClient {
     Provider getProvider();
@@ -38,13 +40,22 @@ public interface BlobStorageSyncClient {
             String destinationBlobKey
     );
 
-    List<Bucket> listAllBuckets();
+    ListingPage<Bucket> listBuckets(PageRequest request);
 
-    List<Blob> listBlobsByPrefix(String bucketName, String prefix);
+    ListingPage<Blob> listBlobs(String bucketName, String prefix, PageRequest request);
+
+    default Iterable<Bucket> iterateBuckets(int pageSize) {
+        return new PagedIterable<>(PageRequest.builder().pageSize(pageSize).build(), this::listBuckets);
+    }
+
+    default Iterable<Blob> iterateBlobs(String bucketName, String prefix, int pageSize) {
+        return new PagedIterable<>(
+                PageRequest.builder().pageSize(pageSize).build(),
+                pageRequest -> listBlobs(bucketName, prefix, pageRequest)
+        );
+    }
 
     Void createBucket(Bucket bucket);
-
-    List<Blob> getAllBlobsInBucket(String bucketName);
 
     Void deleteBucketIfExists(String bucketName);
 

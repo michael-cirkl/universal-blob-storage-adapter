@@ -6,6 +6,9 @@ import com.azure.storage.common.StorageSharedKeyCredential;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
 import michaelcirkl.ubsa.Bucket;
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
+import michaelcirkl.ubsa.Blob;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,6 +56,18 @@ public class AzureSyncMain {
 
             byte[] content = client.getBlob(bucketName, blobKey).getContent();
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));
+
+            ListingPage<Blob> firstBlobPage = client.listBlobs(
+                    bucketName,
+                    null,
+                    PageRequest.builder().pageSize(10).build()
+            );
+            System.out.println("First blob page size: " + firstBlobPage.getItems().size());
+            System.out.println("Has next blob page: " + firstBlobPage.hasNextPage());
+
+            for (Blob listedBlob : client.iterateBlobs(bucketName, null, 10)) {
+                System.out.println("Iterated blob key: " + listedBlob.getKey());
+            }
 
             URL putUrl = client.generatePutUrl(bucketName, blobKey, Duration.ofMinutes(10), "text/plain");
             URL getUrl = client.generateGetUrl(bucketName, blobKey, Duration.ofMinutes(10));

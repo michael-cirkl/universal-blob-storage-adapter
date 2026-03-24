@@ -2,6 +2,8 @@ package michaelcirkl.ubsa.client.sync;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.util.AwsClientSupport;
 import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
@@ -17,8 +19,6 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 
 public class AWSSyncClientImpl implements BlobStorageSyncClient {
     private final AWSExceptionHandler exceptionHandler = new AWSExceptionHandler();
@@ -183,19 +183,40 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public List<Bucket> listAllBuckets() {
-        return exceptionHandler.handle(() -> AwsClientSupport.mapBuckets(client.listBuckets()));
+    public ListingPage<Bucket> listBuckets(PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
+        return exceptionHandler.handle(() -> {
+            ListBucketsRequest.Builder requestBuilder = ListBucketsRequest.builder();
+            if (pageRequest.getPageSize() != null) {
+                requestBuilder.maxBuckets(pageRequest.getPageSize());
+            }
+            if (pageRequest.getContinuationToken() != null) {
+                requestBuilder.continuationToken(pageRequest.getContinuationToken());
+            }
+
+            ListBucketsResponse response = client.listBuckets(requestBuilder.build());
+            return ListingPage.of(AwsClientSupport.mapBuckets(response), response.continuationToken());
+        });
     }
 
     @Override
-    public List<Blob> listBlobsByPrefix(String bucketName, String prefix) {
+    public ListingPage<Blob> listBlobs(String bucketName, String prefix, PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
         return exceptionHandler.handle(() -> {
             ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
                     .bucket(bucketName);
             if (prefix != null && !prefix.isBlank()) {
                 requestBuilder.prefix(prefix);
             }
-            return listAllBlobs(bucketName, requestBuilder.build());
+            if (pageRequest.getPageSize() != null) {
+                requestBuilder.maxKeys(pageRequest.getPageSize());
+            }
+            if (pageRequest.getContinuationToken() != null) {
+                requestBuilder.continuationToken(pageRequest.getContinuationToken());
+            }
+
+            ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
+            return ListingPage.of(AwsClientSupport.mapBlobsFromList(bucketName, response), response.nextContinuationToken());
         });
     }
 
@@ -207,16 +228,6 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                     .build();
             client.createBucket(request);
             return null;
-        });
-    }
-
-    @Override
-    public List<Blob> getAllBlobsInBucket(String bucketName) {
-        return exceptionHandler.handle(() -> {
-            ListObjectsV2Request request = ListObjectsV2Request.builder()
-                    .bucket(bucketName)
-                    .build();
-            return listAllBlobs(bucketName, request);
         });
     }
 
@@ -269,21 +280,6 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         });
     }
 
-    private List<Blob> listAllBlobs(String bucketName, ListObjectsV2Request initialRequest) {
-        List<Blob> blobs = new ArrayList<>();
-        ListObjectsV2Request request = initialRequest;
-
-        while (request != null) {
-            ListObjectsV2Response response = client.listObjectsV2(request);
-            blobs.addAll(AwsClientSupport.mapBlobsFromList(bucketName, response));
-            request = response.isTruncated()
-                    ? initialRequest.toBuilder().continuationToken(response.nextContinuationToken()).build()
-                    : null;
-        }
-
-        return blobs;
-    }
-
     private void validateAwsSinglePutLength(long contentLength) {
         // PUT object max size is 5 GiB
         long maxSinglePutBytes = 5L * 1024L * 1024L * 1024L;
@@ -303,5 +299,9 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
+    }
+
+    private PageRequest normalizePageRequest(PageRequest request) {
+        return request == null ? PageRequest.firstPage() : request;
     }
 }

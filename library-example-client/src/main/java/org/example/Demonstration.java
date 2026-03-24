@@ -3,6 +3,7 @@ package org.example;
 import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.exception.UbsaException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -10,6 +11,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 import java.net.URI;
+import java.util.concurrent.Flow;
 
 public class Demonstration {
     public static void main(String[] args) {
@@ -25,7 +27,27 @@ public class Demonstration {
         BlobStorageSyncClient syncClient = BlobStorageClientFactory.getSyncClient(s3);
 
         // Calling operations
-        asyncClient.listAllBuckets();
+        asyncClient.listBuckets(PageRequest.firstPage());
+        asyncClient.streamBuckets(10)
+                .subscribe(new Flow.Subscriber<>() {
+                    @Override
+                    public void onSubscribe(Flow.Subscription subscription) {
+                        subscription.request(1);
+                        subscription.cancel();
+                    }
+
+                    @Override
+                    public void onNext(michaelcirkl.ubsa.Bucket item) {
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                    }
+
+                    @Override
+                    public void onComplete() {
+                    }
+                });
 
         // Getting client back, with real return type using generics.
         S3AsyncClient s3client = asyncClient.unwrap(S3AsyncClient.class);

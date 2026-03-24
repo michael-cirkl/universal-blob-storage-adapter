@@ -1,5 +1,6 @@
 package michaelcirkl.ubsa.client.sync;
 
+import com.azure.core.http.rest.PagedResponse;
 import com.azure.core.util.BinaryData;
 import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobClient;
@@ -12,6 +13,8 @@ import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.AzureExceptionHandler;
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
@@ -28,6 +31,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -158,32 +162,39 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public List<Bucket> listAllBuckets() {
+    public ListingPage<Bucket> listBuckets(PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
         return exceptionHandler.handle(() -> {
-            List<Bucket> buckets = new ArrayList<>();
-            client.listBlobContainers().forEach(item -> {
-                OffsetDateTime lastModified = item.getProperties() == null ? null : item.getProperties().getLastModified();
-                buckets.add(Bucket.builder()
-                        .name(item.getName())
-                        .publicURI(toUri(client.getBlobContainerClient(item.getName()).getBlobContainerUrl()))
-                        .lastModified(toLocalDateTime(lastModified))
-                        .creationDate(null) // Not supported by azure
-                        .build());
-            });
-            return buckets;
+            Iterator<PagedResponse<BlobContainerItem>> pages = pageRequest.getPageSize() == null
+                    ? client.listBlobContainers().iterableByPage(pageRequest.getContinuationToken()).iterator()
+                    : client.listBlobContainers().iterableByPage(pageRequest.getContinuationToken(), pageRequest.getPageSize()).iterator();
+            if (!pages.hasNext()) {
+                return ListingPage.of(List.of(), null);
+            }
+
+            PagedResponse<BlobContainerItem> page = pages.next();
+            return ListingPage.of(mapBuckets(page.getElements()), page.getContinuationToken());
         });
     }
 
     @Override
-    public List<Blob> listBlobsByPrefix(String bucketName, String prefix) {
+    public ListingPage<Blob> listBlobs(String bucketName, String prefix, PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
         return exceptionHandler.handle(() -> {
             BlobContainerClient containerClient = client.getBlobContainerClient(bucketName);
             ListBlobsOptions options = new ListBlobsOptions();
             if (prefix != null && !prefix.isBlank()) {
                 options.setPrefix(prefix);
             }
+            Iterator<PagedResponse<BlobItem>> pages = pageRequest.getPageSize() == null
+                    ? containerClient.listBlobs(options, null).iterableByPage(pageRequest.getContinuationToken()).iterator()
+                    : containerClient.listBlobs(options, null).iterableByPage(pageRequest.getContinuationToken(), pageRequest.getPageSize()).iterator();
+            if (!pages.hasNext()) {
+                return ListingPage.of(List.of(), null);
+            }
 
-            return mapBlobsFromList(bucketName, containerClient, containerClient.listBlobs(options, null));
+            PagedResponse<BlobItem> page = pages.next();
+            return ListingPage.of(mapBlobsFromList(bucketName, containerClient, page.getElements()), page.getContinuationToken());
         });
     }
 
@@ -193,11 +204,6 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
             client.createBlobContainer(bucket.getName());
             return null;
         });
-    }
-
-    @Override
-    public List<Blob> getAllBlobsInBucket(String bucketName) {
-        return listBlobsByPrefix(bucketName, null);
     }
 
     @Override
@@ -250,6 +256,20 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         return client.getBlobContainerClient(bucketName).getBlobClient(blobKey);
     }
 
+    private List<Bucket> mapBuckets(Iterable<BlobContainerItem> containerItems) {
+        List<Bucket> buckets = new ArrayList<>();
+        containerItems.forEach(item -> {
+            OffsetDateTime lastModified = item.getProperties() == null ? null : item.getProperties().getLastModified();
+            buckets.add(Bucket.builder()
+                    .name(item.getName())
+                    .publicURI(toUri(client.getBlobContainerClient(item.getName()).getBlobContainerUrl()))
+                    .lastModified(toLocalDateTime(lastModified))
+                    .creationDate(null) // Not supported by azure
+                    .build());
+        });
+        return buckets;
+    }
+
     private List<Blob> mapBlobsFromList(String bucketName, BlobContainerClient containerClient, Iterable<BlobItem> blobItems) {
         List<Blob> blobs = new ArrayList<>();
         blobItems.forEach(item -> {
@@ -298,6 +318,10 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
+    }
+
+    private PageRequest normalizePageRequest(PageRequest request) {
+        return request == null ? PageRequest.firstPage() : request;
     }
 
 }

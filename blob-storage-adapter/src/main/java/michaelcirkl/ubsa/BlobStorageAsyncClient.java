@@ -1,12 +1,14 @@
 package michaelcirkl.ubsa;
 
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PagedFlowPublisher;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 
@@ -40,13 +42,22 @@ public interface BlobStorageAsyncClient {
             String destinationBlobKey
     );
 
-    CompletableFuture<List<Bucket>> listAllBuckets();
+    CompletableFuture<ListingPage<Bucket>> listBuckets(PageRequest request);
 
-    CompletableFuture<List<Blob>> listBlobsByPrefix(String bucketName, String prefix);
+    CompletableFuture<ListingPage<Blob>> listBlobs(String bucketName, String prefix, PageRequest request);
+
+    default Flow.Publisher<Bucket> streamBuckets(int pageSize) {
+        return new PagedFlowPublisher<>(PageRequest.builder().pageSize(pageSize).build(), this::listBuckets);
+    }
+
+    default Flow.Publisher<Blob> streamBlobs(String bucketName, String prefix, int pageSize) {
+        return new PagedFlowPublisher<>(
+                PageRequest.builder().pageSize(pageSize).build(),
+                pageRequest -> listBlobs(bucketName, prefix, pageRequest)
+        );
+    }
 
     CompletableFuture<Void> createBucket(Bucket bucket);
-
-    CompletableFuture<List<Blob>> getAllBlobsInBucket(String bucketName);
 
     CompletableFuture<Void> deleteBucketIfExists(String bucketName);
 

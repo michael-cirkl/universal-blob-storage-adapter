@@ -1,14 +1,18 @@
 package org.example.async;
 
+import com.azure.core.http.rest.PagedResponse;
 import com.azure.core.http.rest.PagedFlux;
+import com.azure.core.util.IterableStream;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.models.BlobContainerItem;
 import com.azure.storage.blob.models.BlobContainerItemProperties;
 import michaelcirkl.ubsa.Bucket;
+import michaelcirkl.ubsa.client.pagination.ListingPage;
+import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.async.AzureAsyncClientImpl;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -16,22 +20,29 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AzureAsyncListingTest {
     @Test
-    void listAllBucketsLeavesCreationDateUnknown() throws Exception {
+    void listBucketsReturnsSinglePageWithoutCollectingAllPages() throws Exception {
         BlobServiceAsyncClient serviceClient = mock(BlobServiceAsyncClient.class);
         @SuppressWarnings("unchecked")
         PagedFlux<BlobContainerItem> containers = mock(PagedFlux.class);
+        @SuppressWarnings("unchecked")
+        PagedResponse<BlobContainerItem> page = mock(PagedResponse.class);
         BlobContainerItem containerItem = mock(BlobContainerItem.class);
         BlobContainerItemProperties properties = mock(BlobContainerItemProperties.class);
         BlobContainerAsyncClient containerClient = mock(BlobContainerAsyncClient.class);
         OffsetDateTime lastModified = OffsetDateTime.of(2025, 1, 2, 3, 4, 5, 0, ZoneOffset.UTC);
 
         when(serviceClient.listBlobContainers()).thenReturn(containers);
-        when(containers.collectList()).thenReturn(Mono.just(List.of(containerItem)));
+        when(containers.byPage(null, 5)).thenReturn(Flux.just(page));
+        when(page.getElements()).thenReturn(new IterableStream<>(List.of(containerItem)));
+        when(page.getContinuationToken()).thenReturn("page-2");
         when(containerItem.getName()).thenReturn("bucket");
         when(containerItem.getProperties()).thenReturn(properties);
         when(properties.getLastModified()).thenReturn(lastModified);
@@ -39,12 +50,15 @@ class AzureAsyncListingTest {
         when(containerClient.getBlobContainerUrl()).thenReturn("https://example.test/bucket");
 
         AzureAsyncClientImpl adapter = new AzureAsyncClientImpl(serviceClient);
-        List<Bucket> buckets = adapter.listAllBuckets().get();
+        ListingPage<Bucket> buckets = adapter.listBuckets(PageRequest.builder().pageSize(5).build()).get();
 
-        assertEquals(1, buckets.size());
-        Bucket bucket = buckets.get(0);
+        assertEquals(1, buckets.getItems().size());
+        Bucket bucket = buckets.getItems().get(0);
         assertEquals("bucket", bucket.getName());
         assertNull(bucket.getCreationDate());
         assertEquals(lastModified.toLocalDateTime(), bucket.getLastModified());
+        assertTrue(buckets.hasNextPage());
+        assertEquals("page-2", buckets.getNextContinuationToken());
+        verify(containers, never()).collectList();
     }
 }
