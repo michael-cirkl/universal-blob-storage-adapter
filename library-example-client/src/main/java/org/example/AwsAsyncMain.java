@@ -84,6 +84,10 @@ public class AwsAsyncMain {
             client.createBlob(bucketName, blob).get();
             System.out.println("Blob exists: " + client.blobExists(bucketName, "example").get());
 
+            Blob metadata = client.getBlobMetadata(bucketName, "example").get();
+            System.out.println("Blob metadata size: " + metadata.getSize());
+            System.out.println("Blob metadata content loaded: " + (metadata.getContent() != null));
+
             byte[] content = client.getBlob(bucketName, "example").get().getContent();
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));
 

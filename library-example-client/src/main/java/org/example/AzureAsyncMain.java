@@ -3,6 +3,7 @@ package org.example;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.common.StorageSharedKeyCredential;
+import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
 import michaelcirkl.ubsa.Bucket;
@@ -50,6 +51,10 @@ public class AzureAsyncMain {
             String etag = client.createBlob(bucketName, blobKey, uploadFile).get();
             System.out.println("Created blob etag: " + etag);
             System.out.println("Blob exists: " + client.blobExists(bucketName, blobKey).get());
+
+            Blob metadata = client.getBlobMetadata(bucketName, blobKey).get();
+            System.out.println("Blob metadata size: " + metadata.getSize());
+            System.out.println("Blob metadata content loaded: " + (metadata.getContent() != null));
 
             byte[] content = client.getBlob(bucketName, blobKey).get().getContent();
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));

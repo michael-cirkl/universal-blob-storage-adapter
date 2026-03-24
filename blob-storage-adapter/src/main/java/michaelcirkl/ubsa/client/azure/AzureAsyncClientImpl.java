@@ -87,6 +87,27 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
+    public CompletableFuture<Blob> getBlobMetadata(String bucketName, String blobKey) {
+        BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
+
+        return exceptionHandler.handleAsync(
+                blobClient.getProperties()
+                        .map(properties -> Blob.builder()
+                                .bucket(bucketName)
+                                .key(blobKey)
+                                .size(properties.getBlobSize())
+                                .lastModified(toLocalDateTime(properties.getLastModified()))
+                                .encoding(properties.getContentEncoding())
+                                .etag(properties.getETag())
+                                .userMetadata(properties.getMetadata())
+                                .publicURI(toUri(blobClient.getBlobUrl()))
+                                .expires(toLocalDateTime(properties.getExpiresOn()))
+                                .build())
+                        .toFuture()
+        );
+    }
+
+    @Override
     public Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey) {
         BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
         return FlowPublisherBridge.mapErrors(

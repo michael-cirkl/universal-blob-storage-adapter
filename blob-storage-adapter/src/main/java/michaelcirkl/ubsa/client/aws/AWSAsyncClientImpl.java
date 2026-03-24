@@ -64,6 +64,19 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
+    public CompletableFuture<Blob> getBlobMetadata(String bucketName, String blobKey) {
+        HeadObjectRequest request = HeadObjectRequest.builder()
+                .bucket(bucketName)
+                .key(blobKey)
+                .build();
+
+        return exceptionHandler.handleAsync(
+                client.headObject(request)
+                        .thenApply(response -> AWSClientSupport.buildBlobFromHeadObject(bucketName, blobKey, response))
+        );
+    }
+
+    @Override
     public Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey) {
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(bucketName)

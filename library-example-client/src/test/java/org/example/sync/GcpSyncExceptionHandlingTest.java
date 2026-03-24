@@ -8,18 +8,52 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class GcpSyncExceptionHandlingTest {
+    @Test
+    void getBlobMetadataReturnsMetadataWithoutReadingContent() {
+        Storage client = mock(Storage.class);
+        com.google.cloud.storage.Blob blob = mock(com.google.cloud.storage.Blob.class);
+        GCPSyncClientImpl adapter = new GCPSyncClientImpl(client);
+        when(client.get("bucket", "blob")).thenReturn(blob);
+        when(blob.getSize()).thenReturn(5L);
+        when(blob.getUpdateTimeOffsetDateTime()).thenReturn(OffsetDateTime.of(2025, 1, 2, 3, 4, 5, 0, ZoneOffset.UTC));
+        when(blob.getContentEncoding()).thenReturn("gzip");
+        when(blob.getEtag()).thenReturn("etag-1");
+        when(blob.getMetadata()).thenReturn(Map.of("k", "v"));
+
+        michaelcirkl.ubsa.Blob result = adapter.getBlobMetadata("bucket", "blob");
+
+        assertNull(result.getContent());
+        assertEquals("bucket", result.getBucket());
+        assertEquals("blob", result.getKey());
+        assertEquals(5L, result.getSize());
+        assertEquals("gzip", result.encoding());
+        assertEquals("etag-1", result.getEtag());
+        assertEquals(Map.of("k", "v"), result.getUserMetadata());
+        assertEquals(URI.create("gs://bucket/blob"), result.getPublicURI());
+        assertEquals(LocalDateTime.of(2025, 1, 2, 3, 4, 5), result.lastModified());
+        verify(blob, never()).getContent();
+    }
+
     @Test
     void getBlobWrapsStorageFailuresInUbsaException() {
         Storage client = mock(Storage.class);
@@ -40,6 +74,31 @@ class GcpSyncExceptionHandlingTest {
         when(client.get("bucket", "blob")).thenReturn(null);
 
         UbsaException error = assertThrows(UbsaException.class, () -> adapter.getBlob("bucket", "blob"));
+        assertEquals("Blob not found: gs://bucket/blob", error.getMessage());
+        assertEquals(404, error.getStatusCode());
+        assertInstanceOf(StorageException.class, error.getCause());
+    }
+
+    @Test
+    void getBlobMetadataWrapsStorageFailuresInUbsaException() {
+        Storage client = mock(Storage.class);
+        GCPSyncClientImpl adapter = new GCPSyncClientImpl(client);
+        StorageException failure = new StorageException(500, "gcp failure");
+        when(client.get("bucket", "blob")).thenThrow(failure);
+
+        UbsaException error = assertThrows(UbsaException.class, () -> adapter.getBlobMetadata("bucket", "blob"));
+        assertEquals("gcp failure", error.getMessage());
+        assertEquals(500, error.getStatusCode());
+        assertSame(failure, error.getCause());
+    }
+
+    @Test
+    void getBlobMetadataTreatsMissingBlobAsNotFound() {
+        Storage client = mock(Storage.class);
+        GCPSyncClientImpl adapter = new GCPSyncClientImpl(client);
+        when(client.get("bucket", "blob")).thenReturn(null);
+
+        UbsaException error = assertThrows(UbsaException.class, () -> adapter.getBlobMetadata("bucket", "blob"));
         assertEquals("Blob not found: gs://bucket/blob", error.getMessage());
         assertEquals(404, error.getStatusCode());
         assertInstanceOf(StorageException.class, error.getCause());

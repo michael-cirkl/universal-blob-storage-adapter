@@ -20,6 +20,14 @@ public interface BlobStorageSyncClient {
 
     Blob getBlob(String bucketName, String blobKey);
 
+    /**
+     * Returns blob metadata without downloading content bytes. Implementations may return {@code null}
+     * from {@link Blob#getContent()} for metadata-only reads.
+     */
+    default Blob getBlobMetadata(String bucketName, String blobKey) {
+        return metadataOnly(getBlob(bucketName, blobKey));
+    }
+
     InputStream openBlobStream(String bucketName, String blobKey);
 
     Void deleteBucket(String bucketName);
@@ -67,4 +75,21 @@ public interface BlobStorageSyncClient {
     URL generateGetUrl(String bucket, String objectKey, Duration expiry);
 
     URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
+
+    private static Blob metadataOnly(Blob blob) {
+        if (blob == null) {
+            return null;
+        }
+        return Blob.builder()
+                .bucket(blob.getBucket())
+                .key(blob.getKey())
+                .size(blob.getSize())
+                .lastModified(blob.lastModified())
+                .encoding(blob.encoding())
+                .etag(blob.getEtag())
+                .userMetadata(blob.getUserMetadata())
+                .publicURI(blob.getPublicURI())
+                .expires(blob.expires())
+                .build();
+    }
 }

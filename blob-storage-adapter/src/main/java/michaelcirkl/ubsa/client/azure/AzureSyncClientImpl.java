@@ -85,6 +85,26 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
+    public Blob getBlobMetadata(String bucketName, String blobKey) {
+        return exceptionHandler.handle(() -> {
+            BlobClient blobClient = blobClient(bucketName, blobKey);
+            BlobProperties properties = blobClient.getProperties();
+
+            return Blob.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .size(properties.getBlobSize())
+                    .lastModified(toLocalDateTime(properties.getLastModified()))
+                    .encoding(properties.getContentEncoding())
+                    .etag(properties.getETag())
+                    .userMetadata(properties.getMetadata())
+                    .publicURI(toUri(blobClient.getBlobUrl()))
+                    .expires(toLocalDateTime(properties.getExpiresOn()))
+                    .build();
+        });
+    }
+
+    @Override
     public InputStream openBlobStream(String bucketName, String blobKey) {
         return exceptionHandler.handle(() -> blobClient(bucketName, blobKey).openInputStream());
     }

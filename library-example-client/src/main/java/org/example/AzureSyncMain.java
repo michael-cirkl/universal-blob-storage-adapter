@@ -54,6 +54,10 @@ public class AzureSyncMain {
             System.out.println("Created blob etag: " + etag);
             System.out.println("Blob exists: " + client.blobExists(bucketName, blobKey));
 
+            Blob metadata = client.getBlobMetadata(bucketName, blobKey);
+            System.out.println("Blob metadata size: " + metadata.getSize());
+            System.out.println("Blob metadata content loaded: " + (metadata.getContent() != null));
+
             byte[] content = client.getBlob(bucketName, blobKey).getContent();
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));
 

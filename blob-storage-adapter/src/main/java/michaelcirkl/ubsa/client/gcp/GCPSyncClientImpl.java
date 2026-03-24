@@ -61,6 +61,11 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
+    public Blob getBlobMetadata(String bucketName, String blobKey) {
+        return exceptionHandler.handle(() -> GCPClientSupport.mapBlobMetadata(bucketName, blobKey, requireBlob(bucketName, blobKey)));
+    }
+
+    @Override
     public InputStream openBlobStream(String bucketName, String blobKey) {
         return exceptionHandler.handle(() -> {
             requireBlob(bucketName, blobKey);

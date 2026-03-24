@@ -51,6 +51,10 @@ public class GCPAsyncMain {
             System.out.println("Created blob etag: " + etag);
             System.out.println("Blob exists: " + client.blobExists(bucketName, blobKey).get());
 
+            Blob metadata = client.getBlobMetadata(bucketName, blobKey).get();
+            System.out.println("Blob metadata size: " + metadata.getSize());
+            System.out.println("Blob metadata content loaded: " + (metadata.getContent() != null));
+
             byte[] content = client.getBlob(bucketName, blobKey).get().getContent();
             System.out.println("Blob content: " + new String(content, StandardCharsets.UTF_8));
 

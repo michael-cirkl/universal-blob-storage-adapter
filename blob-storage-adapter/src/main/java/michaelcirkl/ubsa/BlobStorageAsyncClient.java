@@ -22,6 +22,14 @@ public interface BlobStorageAsyncClient {
 
     CompletableFuture<Blob> getBlob(String bucketName, String blobKey);
 
+    /**
+     * Returns blob metadata without downloading content bytes. Implementations may return {@code null}
+     * from {@link Blob#getContent()} for metadata-only reads.
+     */
+    default CompletableFuture<Blob> getBlobMetadata(String bucketName, String blobKey) {
+        return getBlob(bucketName, blobKey).thenApply(BlobStorageAsyncClient::metadataOnly);
+    }
+
     Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey);
 
     CompletableFuture<Void> deleteBucket(String bucketName);
@@ -69,4 +77,21 @@ public interface BlobStorageAsyncClient {
     URL generateGetUrl(String bucket, String objectKey, Duration expiry);
 
     URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
+
+    private static Blob metadataOnly(Blob blob) {
+        if (blob == null) {
+            return null;
+        }
+        return Blob.builder()
+                .bucket(blob.getBucket())
+                .key(blob.getKey())
+                .size(blob.getSize())
+                .lastModified(blob.lastModified())
+                .encoding(blob.encoding())
+                .etag(blob.getEtag())
+                .userMetadata(blob.getUserMetadata())
+                .publicURI(blob.getPublicURI())
+                .expires(blob.expires())
+                .build();
+    }
 }

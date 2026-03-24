@@ -12,14 +12,19 @@ import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
 import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
@@ -33,10 +38,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class AwsAsyncExceptionHandlingTest {
+    @Test
+    void getBlobMetadataReadsHeadOnly() {
+        S3AsyncClient client = mock(S3AsyncClient.class);
+        AWSAsyncClientImpl adapter = new AWSAsyncClientImpl(client);
+        HeadObjectResponse response = HeadObjectResponse.builder()
+                .contentLength(5L)
+                .lastModified(Instant.parse("2025-01-02T03:04:05Z"))
+                .contentEncoding("gzip")
+                .eTag("etag-1")
+                .metadata(Map.of("k", "v"))
+                .expiresString("Thu, 02 Jan 2025 04:05:06 GMT")
+                .build();
+        when(client.headObject(any(HeadObjectRequest.class))).thenReturn(CompletableFuture.completedFuture(response));
+
+        Blob blob = adapter.getBlobMetadata("bucket", "blob").join();
+
+        assertNull(blob.getContent());
+        assertEquals("bucket", blob.getBucket());
+        assertEquals("blob", blob.getKey());
+        assertEquals(5L, blob.getSize());
+        assertEquals("gzip", blob.encoding());
+        assertEquals("etag-1", blob.getEtag());
+        assertEquals(Map.of("k", "v"), blob.getUserMetadata());
+        assertEquals(URI.create("s3://bucket/blob"), blob.getPublicURI());
+        assertEquals(LocalDateTime.of(2025, 1, 2, 3, 4, 5), blob.lastModified());
+        assertEquals(LocalDateTime.of(2025, 1, 2, 4, 5, 6), blob.expires());
+        verify(client, never()).getObject(any(GetObjectRequest.class), any(AsyncResponseTransformer.class));
+    }
+
     @Test
     void listBucketsUsesCreationDateAndLeavesLastModifiedUnset() {
         S3AsyncClient client = mock(S3AsyncClient.class);
@@ -76,6 +112,22 @@ class AwsAsyncExceptionHandlingTest {
                 .thenReturn(CompletableFuture.failedFuture(failure));
 
         CompletionException completionError = assertThrows(CompletionException.class, () -> adapter.getBlob("bucket", "blob").join());
+        assertTrue(completionError.getCause() instanceof UbsaException);
+        UbsaException error = (UbsaException) completionError.getCause();
+        assertEquals("boom", error.getMessage());
+        assertEquals(500, error.getStatusCode());
+        assertSame(failure, error.getCause());
+    }
+
+    @Test
+    void getBlobMetadataWrapsS3FailuresInUbsaException() {
+        S3AsyncClient client = mock(S3AsyncClient.class);
+        AWSAsyncClientImpl adapter = new AWSAsyncClientImpl(client);
+        S3Exception failure = s3Exception(500, "boom");
+        when(client.headObject(any(HeadObjectRequest.class)))
+                .thenReturn(CompletableFuture.failedFuture(failure));
+
+        CompletionException completionError = assertThrows(CompletionException.class, () -> adapter.getBlobMetadata("bucket", "blob").join());
         assertTrue(completionError.getCause() instanceof UbsaException);
         UbsaException error = (UbsaException) completionError.getCause();
         assertEquals("boom", error.getMessage());

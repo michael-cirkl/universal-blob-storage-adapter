@@ -30,6 +30,7 @@ public class Blob {
     }
 
     public byte[] getContent() {
+        // Metadata-only reads and listing operations can return Blob instances without in-memory content.
         return content;
     }
 

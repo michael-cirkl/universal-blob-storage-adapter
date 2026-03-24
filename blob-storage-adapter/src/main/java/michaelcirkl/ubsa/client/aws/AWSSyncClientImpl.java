@@ -72,6 +72,17 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
+    public Blob getBlobMetadata(String bucketName, String blobKey) {
+        return exceptionHandler.handle(() -> {
+            HeadObjectRequest request = HeadObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
+            return AWSClientSupport.buildBlobFromHeadObject(bucketName, blobKey, client.headObject(request));
+        });
+    }
+
+    @Override
     public InputStream openBlobStream(String bucketName, String blobKey) {
         return exceptionHandler.handle(() -> {
             GetObjectRequest request = GetObjectRequest.builder()

@@ -67,6 +67,13 @@ class GCPClientSupportTest {
         assertEquals("etag-123", fetched.getEtag());
         assertEquals(Map.of("k", "v"), fetched.getUserMetadata());
         assertEquals(URI.create("gs://bucket-a/path/blob.txt"), fetched.getPublicURI());
+
+        Blob metadataOnly = GCPClientSupport.mapBlobMetadata("bucket-a", "path/blob.txt", blobInfo);
+        assertNull(metadataOnly.getContent());
+        assertEquals(5L, metadataOnly.getSize());
+        assertEquals("etag-123", metadataOnly.getEtag());
+        assertEquals(Map.of("k", "v"), metadataOnly.getUserMetadata());
+        assertEquals(URI.create("gs://bucket-a/path/blob.txt"), metadataOnly.getPublicURI());
     }
 
     @Test

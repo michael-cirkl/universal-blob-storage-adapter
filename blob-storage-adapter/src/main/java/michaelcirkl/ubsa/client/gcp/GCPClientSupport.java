@@ -44,9 +44,22 @@ public final class GCPClientSupport {
 
     public static Blob mapFetchedBlob(String bucketName, String blobKey, BlobInfo blobInfo, byte[] content) {
         return Blob.builder()
+                .content(content)
                 .bucket(bucketName)
                 .key(blobKey)
-                .content(content)
+                .size(blobInfo.getSize() == null ? 0L : blobInfo.getSize())
+                .lastModified(toLocalDateTime(blobInfo.getUpdateTimeOffsetDateTime()))
+                .encoding(blobInfo.getContentEncoding())
+                .etag(blobInfo.getEtag())
+                .userMetadata(blobInfo.getMetadata())
+                .publicURI(toGsUri(bucketName, blobKey))
+                .build();
+    }
+
+    public static Blob mapBlobMetadata(String bucketName, String blobKey, BlobInfo blobInfo) {
+        return Blob.builder()
+                .bucket(bucketName)
+                .key(blobKey)
                 .size(blobInfo.getSize() == null ? 0L : blobInfo.getSize())
                 .lastModified(toLocalDateTime(blobInfo.getUpdateTimeOffsetDateTime()))
                 .encoding(blobInfo.getContentEncoding())
@@ -121,16 +134,7 @@ public final class GCPClientSupport {
     }
 
     private static Blob mapBlobSummary(String bucketName, BlobInfo blobInfo) {
-        return Blob.builder()
-                .bucket(bucketName)
-                .key(blobInfo.getName())
-                .size(blobInfo.getSize())
-                .lastModified(toLocalDateTime(blobInfo.getUpdateTimeOffsetDateTime()))
-                .encoding(blobInfo.getContentEncoding())
-                .etag(blobInfo.getEtag())
-                .userMetadata(blobInfo.getMetadata())
-                .publicURI(toGsUri(bucketName, blobInfo.getName()))
-                .build();
+        return mapBlobMetadata(bucketName, blobInfo.getName(), blobInfo);
     }
 
     private static LocalDateTime toLocalDateTime(OffsetDateTime time) {

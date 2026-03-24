@@ -73,6 +73,19 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
+    public CompletableFuture<Blob> getBlobMetadata(String bucketName, String blobKey) {
+        return exceptionHandler.handleAsync(
+                CompletableFuture.supplyAsync(() -> {
+                    com.google.cloud.storage.Blob blob = client.get(bucketName, blobKey);
+                    if (blob == null) {
+                        throw new StorageException(404, "Blob not found: gs://" + bucketName + "/" + blobKey);
+                    }
+                    return GCPClientSupport.mapBlobMetadata(bucketName, blobKey, blob);
+                }, IO_EXECUTOR)
+        );
+    }
+
+    @Override
     public Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey) {
         return FlowPublisherBridge.mapErrors(
                 new GCPReadChannelFlowPublisher(client, BlobId.of(bucketName, blobKey), IO_EXECUTOR),
