@@ -6,20 +6,54 @@ import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.sync.AWSSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
+import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class AwsSyncPaginationTest {
+    @Test
+    void listBucketsUsesCreationDateAndLeavesLastModifiedUnset() {
+        S3Client client = mock(S3Client.class);
+        AWSSyncClientImpl adapter = new AWSSyncClientImpl(client);
+
+        ListBucketsResponse response = ListBucketsResponse.builder()
+                .continuationToken("page-2")
+                .buckets(software.amazon.awssdk.services.s3.model.Bucket.builder()
+                        .name("bucket")
+                        .creationDate(Instant.parse("2025-01-02T03:04:05Z"))
+                        .build())
+                .build();
+
+        when(client.listBuckets(any(ListBucketsRequest.class))).thenAnswer(invocation -> {
+            ListBucketsRequest request = invocation.getArgument(0);
+            assertEquals(5, request.maxBuckets());
+            return response;
+        });
+
+        ListingPage<michaelcirkl.ubsa.Bucket> buckets = adapter.listBuckets(PageRequest.builder().pageSize(5).build());
+
+        assertEquals(1, buckets.getItems().size());
+        michaelcirkl.ubsa.Bucket bucket = buckets.getItems().get(0);
+        assertEquals("bucket", bucket.getName());
+        assertEquals(java.time.LocalDateTime.of(2025, 1, 2, 3, 4, 5), bucket.getCreationDate());
+        assertNull(bucket.getLastModified());
+        assertTrue(buckets.hasNextPage());
+        assertEquals("page-2", buckets.getNextContinuationToken());
+    }
+
     @Test
     void listBlobsReturnsSinglePageAndContinuationToken() {
         S3Client client = mock(S3Client.class);

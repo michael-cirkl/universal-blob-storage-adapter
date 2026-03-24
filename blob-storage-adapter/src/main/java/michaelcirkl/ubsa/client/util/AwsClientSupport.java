@@ -43,7 +43,7 @@ public final class AwsClientSupport {
                     .name(bucket.name())
                     .publicURI(toS3Uri(bucket.name(), null))
                     .creationDate(creation)
-                    .lastModified(creation)
+                    .lastModified(null)
                     .build());
         });
         return buckets;

@@ -1,5 +1,6 @@
 package michaelcirkl.ubsa.client.pagination;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -31,7 +32,8 @@ public final class PagedFlowPublisher<T> implements Flow.Publisher<T> {
     private final class PageSubscription implements Flow.Subscription {
         private final Flow.Subscriber<? super T> downstream;
         private PageRequest nextRequest = initialRequest;
-        private Iterator<T> currentItems = List.<T>of().iterator();
+        private Iterator<T> currentItems = Collections.emptyIterator();
+        private CompletableFuture<ListingPage<T>> inFlightPageFuture;
         private long demand;
         private boolean cancelled;
         private boolean terminated;
@@ -64,8 +66,15 @@ public final class PagedFlowPublisher<T> implements Flow.Publisher<T> {
 
         @Override
         public void cancel() {
+            CompletableFuture<ListingPage<T>> futureToCancel;
             synchronized (this) {
                 cancelled = true;
+                loading = false;
+                futureToCancel = inFlightPageFuture;
+                inFlightPageFuture = null;
+            }
+            if (futureToCancel != null) {
+                futureToCancel.cancel(true);
             }
         }
 
@@ -83,7 +92,7 @@ public final class PagedFlowPublisher<T> implements Flow.Publisher<T> {
                     if (demand > 0 && currentItems.hasNext()) {
                         itemToEmit = currentItems.next();
                         demand--;
-                    } else if (demand > 0 && completeAfterItems) {
+                    } else if (completeAfterItems && !currentItems.hasNext()) {
                         terminated = true;
                         shouldComplete = true;
                     } else if (demand > 0 && !loading) {
@@ -113,14 +122,54 @@ public final class PagedFlowPublisher<T> implements Flow.Publisher<T> {
                     draining = false;
                 }
                 PageRequest capturedRequest = requestToLoad;
-                pageLoader.apply(capturedRequest).whenComplete((page, error) -> {
-                    if (error != null) {
-                        fail(unwrap(error));
-                        return;
+                CompletableFuture<ListingPage<T>> pageFuture;
+                try {
+                    pageFuture = pageLoader.apply(capturedRequest);
+                } catch (Throwable throwable) {
+                    fail(throwable);
+                    return;
+                }
+                if (pageFuture == null) {
+                    fail(new NullPointerException("pageLoader must not return null"));
+                    return;
+                }
+                boolean shouldCancelFuture = false;
+                synchronized (this) {
+                    if (cancelled || terminated) {
+                        loading = false;
+                        shouldCancelFuture = true;
+                    } else {
+                        inFlightPageFuture = pageFuture;
                     }
-                    acceptPage(page == null ? ListingPage.of(List.of(), null) : page, capturedRequest);
-                });
+                }
+                if (shouldCancelFuture) {
+                    pageFuture.cancel(true);
+                    return;
+                }
+                pageFuture.whenComplete((page, error) -> handlePageLoadCompletion(pageFuture, page, error, capturedRequest));
                 return;
+            }
+        }
+
+        private void handlePageLoadCompletion(
+                CompletableFuture<ListingPage<T>> completedFuture,
+                ListingPage<T> page,
+                Throwable error,
+                PageRequest requestUsed
+        ) {
+            clearInFlightPageFuture(completedFuture);
+            if (error != null) {
+                fail(unwrap(error));
+                return;
+            }
+            acceptPage(page == null ? ListingPage.of(List.of(), null) : page, requestUsed);
+        }
+
+        private void clearInFlightPageFuture(CompletableFuture<ListingPage<T>> completedFuture) {
+            synchronized (this) {
+                if (inFlightPageFuture == completedFuture) {
+                    inFlightPageFuture = null;
+                }
             }
         }
 
@@ -155,6 +204,8 @@ public final class PagedFlowPublisher<T> implements Flow.Publisher<T> {
                 }
                 cancelled = true;
                 terminated = true;
+                loading = false;
+                inFlightPageFuture = null;
             }
             downstream.onError(throwable);
         }

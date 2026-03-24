@@ -34,14 +34,13 @@ import java.util.concurrent.*;
 import java.util.function.Function;
 
 public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
+    private final GCPExceptionHandler exceptionHandler = new GCPExceptionHandler();
+    private final Storage client;
     private static final ExecutorService IO_EXECUTOR = Executors.newCachedThreadPool(runnable -> {
         Thread thread = new Thread(runnable, "ubsa-gcp-async-io");
         thread.setDaemon(true);
         return thread;
     });
-
-    private final GCPExceptionHandler exceptionHandler = new GCPExceptionHandler();
-    private final Storage client;
 
     public GCPAsyncClientImpl(Storage client) {
         this.client = client;
@@ -339,11 +338,12 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         List<Bucket> buckets = new ArrayList<>();
         bucketItems.forEach(gcsBucket -> {
             LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
+            LocalDateTime updated = toLocalDateTime(gcsBucket.getUpdateTimeOffsetDateTime());
             buckets.add(Bucket.builder()
                     .name(gcsBucket.getName())
                     .publicURI(toGsUri(gcsBucket.getName(), null))
                     .creationDate(created)
-                    .lastModified(created)
+                    .lastModified(updated)
                     .build());
         });
         return buckets;

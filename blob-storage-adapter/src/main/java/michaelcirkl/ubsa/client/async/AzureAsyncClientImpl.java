@@ -193,6 +193,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         PageRequest pageRequest = normalizePageRequest(request);
         BlobContainerAsyncClient containerClient = client.getBlobContainerAsyncClient(bucketName);
         ListBlobsOptions options = new ListBlobsOptions();
+        options.setDetails(new BlobListDetails().setRetrieveMetadata(true));
         if (prefix != null && !prefix.isBlank()) {
             options.setPrefix(prefix);
         }

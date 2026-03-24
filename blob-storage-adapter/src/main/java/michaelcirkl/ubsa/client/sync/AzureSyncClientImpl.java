@@ -183,6 +183,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
         return exceptionHandler.handle(() -> {
             BlobContainerClient containerClient = client.getBlobContainerClient(bucketName);
             ListBlobsOptions options = new ListBlobsOptions();
+            options.setDetails(new BlobListDetails().setRetrieveMetadata(true));
             if (prefix != null && !prefix.isBlank()) {
                 options.setPrefix(prefix);
             }

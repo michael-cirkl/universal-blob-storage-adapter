@@ -297,11 +297,12 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         List<Bucket> buckets = new ArrayList<>();
         bucketItems.forEach(gcsBucket -> {
             LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
+            LocalDateTime updated = toLocalDateTime(gcsBucket.getUpdateTimeOffsetDateTime());
             buckets.add(Bucket.builder()
                     .name(gcsBucket.getName())
                     .publicURI(toGsUri(gcsBucket.getName(), null))
                     .creationDate(created)
-                    .lastModified(created)
+                    .lastModified(updated)
                     .build());
         });
         return buckets;

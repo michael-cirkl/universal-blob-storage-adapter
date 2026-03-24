@@ -1,7 +1,7 @@
 package michaelcirkl.ubsa.client.pagination;
 
+import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
 
@@ -21,7 +21,7 @@ public final class PagedIterable<T> implements Iterable<T> {
     public Iterator<T> iterator() {
         return new Iterator<>() {
             private PageRequest nextRequest = initialRequest;
-            private Iterator<T> currentItems = List.<T>of().iterator();
+            private Iterator<T> currentItems = Collections.emptyIterator();
             private boolean exhausted;
 
             @Override

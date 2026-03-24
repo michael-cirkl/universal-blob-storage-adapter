@@ -8,6 +8,8 @@ import michaelcirkl.ubsa.client.async.AWSAsyncClientImpl;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
+import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
 import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -16,6 +18,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -24,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,6 +37,36 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class AwsAsyncExceptionHandlingTest {
+    @Test
+    void listBucketsUsesCreationDateAndLeavesLastModifiedUnset() {
+        S3AsyncClient client = mock(S3AsyncClient.class);
+        AWSAsyncClientImpl adapter = new AWSAsyncClientImpl(client);
+
+        ListBucketsResponse response = ListBucketsResponse.builder()
+                .continuationToken("page-2")
+                .buckets(software.amazon.awssdk.services.s3.model.Bucket.builder()
+                        .name("bucket")
+                        .creationDate(Instant.parse("2025-01-02T03:04:05Z"))
+                        .build())
+                .build();
+
+        when(client.listBuckets(any(ListBucketsRequest.class))).thenAnswer(invocation -> {
+            ListBucketsRequest request = invocation.getArgument(0);
+            assertEquals(5, request.maxBuckets());
+            return CompletableFuture.completedFuture(response);
+        });
+
+        ListingPage<michaelcirkl.ubsa.Bucket> buckets = adapter.listBuckets(PageRequest.builder().pageSize(5).build()).join();
+
+        assertEquals(1, buckets.getItems().size());
+        michaelcirkl.ubsa.Bucket bucket = buckets.getItems().get(0);
+        assertEquals("bucket", bucket.getName());
+        assertEquals(java.time.LocalDateTime.of(2025, 1, 2, 3, 4, 5), bucket.getCreationDate());
+        assertNull(bucket.getLastModified());
+        assertTrue(buckets.hasNextPage());
+        assertEquals("page-2", buckets.getNextContinuationToken());
+    }
+
     @Test
     void getBlobWrapsS3FailuresInUbsaException() {
         S3AsyncClient client = mock(S3AsyncClient.class);
