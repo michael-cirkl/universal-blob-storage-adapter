@@ -4,7 +4,7 @@ import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
-import michaelcirkl.ubsa.client.sync.GCPSyncClientImpl;
+import michaelcirkl.ubsa.client.gcp.GCPSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;

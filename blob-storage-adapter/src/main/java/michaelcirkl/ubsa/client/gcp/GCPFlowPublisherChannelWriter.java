@@ -1,4 +1,6 @@
-package michaelcirkl.ubsa.client.streaming;
+package michaelcirkl.ubsa.client.gcp;
+
+import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
@@ -8,8 +10,8 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-public final class GcpFlowPublisherChannelWriter {
-    private GcpFlowPublisherChannelWriter() {
+public final class GCPFlowPublisherChannelWriter {
+    private GCPFlowPublisherChannelWriter() {
     }
 
     public static void writeFromPublisher(Flow.Publisher<ByteBuffer> publisher, WritableByteChannel channel, long contentLength) {

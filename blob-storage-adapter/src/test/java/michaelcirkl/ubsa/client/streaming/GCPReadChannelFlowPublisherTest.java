@@ -3,6 +3,7 @@ package michaelcirkl.ubsa.client.streaming;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
+import michaelcirkl.ubsa.client.gcp.GCPReadChannelFlowPublisher;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
@@ -12,12 +13,12 @@ import java.util.concurrent.Flow;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class GcpReadChannelFlowPublisherTest {
+class GCPReadChannelFlowPublisherTest {
     @Test
     void publishesReadChannelContent() throws Exception {
         byte[] expected = "gcp-read-channel".getBytes();
         Storage storage = storageWithReader(expected);
-        GcpReadChannelFlowPublisher publisher = new GcpReadChannelFlowPublisher(storage, BlobId.of("bucket", "blob"), Runnable::run);
+        GCPReadChannelFlowPublisher publisher = new GCPReadChannelFlowPublisher(storage, BlobId.of("bucket", "blob"), Runnable::run);
         byte[] received = collect(publisher);
         assertArrayEquals(expected, received);
     }
@@ -25,7 +26,7 @@ class GcpReadChannelFlowPublisherTest {
     @Test
     void rejectsNonPositiveDemand() {
         Storage storage = storageWithReader("ignored".getBytes());
-        GcpReadChannelFlowPublisher publisher = new GcpReadChannelFlowPublisher(storage, BlobId.of("bucket", "blob"), Runnable::run);
+        GCPReadChannelFlowPublisher publisher = new GCPReadChannelFlowPublisher(storage, BlobId.of("bucket", "blob"), Runnable::run);
 
         CompletableFuture<Throwable> errorFuture = new CompletableFuture<>();
         publisher.subscribe(new Flow.Subscriber<>() {

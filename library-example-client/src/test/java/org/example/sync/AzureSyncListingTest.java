@@ -15,7 +15,7 @@ import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
-import michaelcirkl.ubsa.client.sync.AzureSyncClientImpl;
+import michaelcirkl.ubsa.client.azure.AzureSyncClientImpl;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;

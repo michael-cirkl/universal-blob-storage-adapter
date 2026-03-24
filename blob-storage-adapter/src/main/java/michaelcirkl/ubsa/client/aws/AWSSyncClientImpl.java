@@ -1,11 +1,10 @@
-package michaelcirkl.ubsa.client.sync;
+package michaelcirkl.ubsa.client.aws;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.pagination.BucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
-import michaelcirkl.ubsa.client.util.AwsClientSupport;
 import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
@@ -68,7 +67,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                     .build();
 
             ResponseBytes<GetObjectResponse> responseBytes = client.getObjectAsBytes(request);
-            return AwsClientSupport.buildBlobFromGetObject(bucketName, blobKey, responseBytes);
+            return AWSClientSupport.buildBlobFromGetObject(bucketName, blobKey, responseBytes);
         });
     }
 
@@ -197,7 +196,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             }
 
             ListBucketsResponse response = client.listBuckets(requestBuilder.build());
-            return ListingPage.of(AwsClientSupport.mapBuckets(response), response.continuationToken());
+            return ListingPage.of(AWSClientSupport.mapBuckets(response), response.continuationToken());
         });
     }
 
@@ -218,7 +217,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             }
 
             ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
-            return ListingPage.of(AwsClientSupport.mapBlobsFromList(bucketName, response), response.nextContinuationToken());
+            return ListingPage.of(AWSClientSupport.mapBlobsFromList(bucketName, response), response.nextContinuationToken());
         });
     }
 
@@ -274,16 +273,16 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
         return exceptionHandler.handle(() -> {
-            AwsClientSupport.validateExpiry(expiry);
-            return AwsClientSupport.presignGetUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig);
+            AWSClientSupport.validateExpiry(expiry);
+            return AWSClientSupport.presignGetUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig);
         });
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
         return exceptionHandler.handle(() -> {
-            AwsClientSupport.validateExpiry(expiry);
-            return AwsClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig);
+            AWSClientSupport.validateExpiry(expiry);
+            return AWSClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig);
         });
     }
 
@@ -296,9 +295,9 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     }
 
     private software.amazon.awssdk.services.s3.presigner.S3Presigner createPresignerFromClientConfig() {
-        return AwsClientSupport.createPresignerFromClientConfig(
+        return AWSClientSupport.createPresignerFromClientConfig(
                 client.serviceClientConfiguration(),
-                () -> client.utilities().getUrl(AwsClientSupport.pathStyleProbeRequest())
+                () -> client.utilities().getUrl(AWSClientSupport.pathStyleProbeRequest())
         );
     }
 

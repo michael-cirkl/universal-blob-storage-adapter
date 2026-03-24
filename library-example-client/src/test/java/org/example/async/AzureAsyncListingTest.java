@@ -15,7 +15,7 @@ import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
-import michaelcirkl.ubsa.client.async.AzureAsyncClientImpl;
+import michaelcirkl.ubsa.client.azure.AzureAsyncClientImpl;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 

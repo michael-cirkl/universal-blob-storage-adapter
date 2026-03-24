@@ -4,7 +4,7 @@ import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Storage;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
-import michaelcirkl.ubsa.client.sync.GCPSyncClientImpl;
+import michaelcirkl.ubsa.client.gcp.GCPSyncClientImpl;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;

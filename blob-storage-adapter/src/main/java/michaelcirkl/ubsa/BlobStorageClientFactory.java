@@ -37,9 +37,9 @@ public class BlobStorageClientFactory {
     }
 
     private enum AsyncAdapter {
-        AWS("software.amazon.awssdk.services.s3.S3AsyncClient", "michaelcirkl.ubsa.client.async.AWSAsyncClientImpl"),
-        AZURE("com.azure.storage.blob.BlobServiceAsyncClient", "michaelcirkl.ubsa.client.async.AzureAsyncClientImpl"),
-        GCP("com.google.cloud.storage.Storage", "michaelcirkl.ubsa.client.async.GCPAsyncClientImpl");
+        AWS("software.amazon.awssdk.services.s3.S3AsyncClient", "michaelcirkl.ubsa.client.aws.AWSAsyncClientImpl"),
+        AZURE("com.azure.storage.blob.BlobServiceAsyncClient", "michaelcirkl.ubsa.client.azure.AzureAsyncClientImpl"),
+        GCP("com.google.cloud.storage.Storage", "michaelcirkl.ubsa.client.gcp.GCPAsyncClientImpl");
 
         private final String sdkClassName;
         private final String implClassName;
@@ -51,9 +51,9 @@ public class BlobStorageClientFactory {
     }
 
     private enum SyncAdapter {
-        AWS("software.amazon.awssdk.services.s3.S3Client", "michaelcirkl.ubsa.client.sync.AWSSyncClientImpl"),
-        AZURE("com.azure.storage.blob.BlobServiceClient", "michaelcirkl.ubsa.client.sync.AzureSyncClientImpl"),
-        GCP("com.google.cloud.storage.Storage", "michaelcirkl.ubsa.client.sync.GCPSyncClientImpl");
+        AWS("software.amazon.awssdk.services.s3.S3Client", "michaelcirkl.ubsa.client.aws.AWSSyncClientImpl"),
+        AZURE("com.azure.storage.blob.BlobServiceClient", "michaelcirkl.ubsa.client.azure.AzureSyncClientImpl"),
+        GCP("com.google.cloud.storage.Storage", "michaelcirkl.ubsa.client.gcp.GCPSyncClientImpl");
 
         private final String sdkClassName;
         private final String implClassName;

@@ -4,7 +4,7 @@ import com.google.api.core.ApiFutures;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.BlobWriteSession;
 import com.google.cloud.storage.Storage;
-import michaelcirkl.ubsa.client.async.GCPAsyncClientImpl;
+import michaelcirkl.ubsa.client.gcp.GCPAsyncClientImpl;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa.client.util;
+package michaelcirkl.ubsa.client.aws;
 
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
@@ -28,11 +28,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-public final class AwsClientSupport {
+public final class AWSClientSupport {
     private static final String PATH_STYLE_PROBE_BUCKET = "ubsa-path-style-probe";
     private static final String PATH_STYLE_PROBE_KEY = "probe";
 
-    private AwsClientSupport() {
+    private AWSClientSupport() {
     }
 
     public static List<Bucket> mapBuckets(ListBucketsResponse response) {

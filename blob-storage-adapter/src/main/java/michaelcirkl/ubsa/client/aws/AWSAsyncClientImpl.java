@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa.client.async;
+package michaelcirkl.ubsa.client.aws;
 
 
 import michaelcirkl.ubsa.Bucket;
@@ -6,7 +6,6 @@ import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.pagination.AsyncBucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
-import michaelcirkl.ubsa.client.util.AwsClientSupport;
 import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.*;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -60,7 +59,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
         return exceptionHandler.handleAsync(
                 client.getObject(request, AsyncResponseTransformer.toBytes())
-                        .thenApply(responseBytes -> AwsClientSupport.buildBlobFromGetObject(bucketName, blobKey, responseBytes))
+                        .thenApply(responseBytes -> AWSClientSupport.buildBlobFromGetObject(bucketName, blobKey, responseBytes))
         );
     }
 
@@ -182,7 +181,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
         return exceptionHandler.handleAsync(
                 client.listBuckets(requestBuilder.build())
-                        .thenApply(response -> ListingPage.of(AwsClientSupport.mapBuckets(response), response.continuationToken()))
+                        .thenApply(response -> ListingPage.of(AWSClientSupport.mapBuckets(response), response.continuationToken()))
         );
     }
 
@@ -203,7 +202,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         return exceptionHandler.handleAsync(
                 client.listObjectsV2(requestBuilder.build())
                         .thenApply(response -> ListingPage.of(
-                                AwsClientSupport.mapBlobsFromList(bucketName, response),
+                                AWSClientSupport.mapBlobsFromList(bucketName, response),
                                 response.nextContinuationToken()
                         ))
         );
@@ -261,14 +260,14 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
-        AwsClientSupport.validateExpiry(expiry);
-        return exceptionHandler.handle(() -> AwsClientSupport.presignGetUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig));
+        AWSClientSupport.validateExpiry(expiry);
+        return exceptionHandler.handle(() -> AWSClientSupport.presignGetUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig));
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        AwsClientSupport.validateExpiry(expiry);
-        return exceptionHandler.handle(() -> AwsClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig));
+        AWSClientSupport.validateExpiry(expiry);
+        return exceptionHandler.handle(() -> AWSClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig));
     }
 
     private <T> CompletableFuture<Boolean> handleExistsCheck(CompletableFuture<T> future) {
@@ -302,9 +301,9 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     private software.amazon.awssdk.services.s3.presigner.S3Presigner createPresignerFromClientConfig() {
-        return AwsClientSupport.createPresignerFromClientConfig(
+        return AWSClientSupport.createPresignerFromClientConfig(
                 client.serviceClientConfiguration(),
-                () -> client.utilities().getUrl(AwsClientSupport.pathStyleProbeRequest())
+                () -> client.utilities().getUrl(AWSClientSupport.pathStyleProbeRequest())
         );
     }
 

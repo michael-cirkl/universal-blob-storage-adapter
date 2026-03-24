@@ -1,6 +1,6 @@
 package org.example.streaming;
 
-import michaelcirkl.ubsa.client.async.AWSAsyncClientImpl;
+import michaelcirkl.ubsa.client.aws.AWSAsyncClientImpl;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

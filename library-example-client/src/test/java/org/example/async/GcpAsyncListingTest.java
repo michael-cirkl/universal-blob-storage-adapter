@@ -2,7 +2,7 @@ package org.example.async;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Storage;
-import michaelcirkl.ubsa.client.async.GCPAsyncClientImpl;
+import michaelcirkl.ubsa.client.gcp.GCPAsyncClientImpl;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import org.junit.jupiter.api.Test;

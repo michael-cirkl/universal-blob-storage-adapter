@@ -3,7 +3,7 @@ package org.example.sync;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageException;
 import michaelcirkl.ubsa.client.exception.UbsaException;
-import michaelcirkl.ubsa.client.sync.GCPSyncClientImpl;
+import michaelcirkl.ubsa.client.gcp.GCPSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

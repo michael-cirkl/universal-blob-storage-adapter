@@ -4,7 +4,7 @@ import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.exception.UbsaException;
-import michaelcirkl.ubsa.client.async.AWSAsyncClientImpl;
+import michaelcirkl.ubsa.client.aws.AWSAsyncClientImpl;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;

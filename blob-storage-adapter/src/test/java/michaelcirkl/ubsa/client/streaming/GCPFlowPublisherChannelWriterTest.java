@@ -1,5 +1,6 @@
 package michaelcirkl.ubsa.client.streaming;
 
+import michaelcirkl.ubsa.client.gcp.GCPFlowPublisherChannelWriter;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -11,11 +12,11 @@ import java.util.concurrent.Flow;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class GcpFlowPublisherChannelWriterTest {
+class GCPFlowPublisherChannelWriterTest {
     @Test
     void writesPublisherContentToChannel() {
         CapturingWritableByteChannel channel = new CapturingWritableByteChannel();
-        GcpFlowPublisherChannelWriter.writeFromPublisher(publisherOf("abc".getBytes(), "def".getBytes()), channel, 6);
+        GCPFlowPublisherChannelWriter.writeFromPublisher(publisherOf("abc".getBytes(), "def".getBytes()), channel, 6);
         assertArrayEquals("abcdef".getBytes(), channel.bytes());
     }
 
@@ -24,7 +25,7 @@ class GcpFlowPublisherChannelWriterTest {
         CapturingWritableByteChannel channel = new CapturingWritableByteChannel();
         IllegalArgumentException error = assertThrows(
                 IllegalArgumentException.class,
-                () -> GcpFlowPublisherChannelWriter.writeFromPublisher(publisherOf("ab".getBytes()), channel, 3)
+                () -> GCPFlowPublisherChannelWriter.writeFromPublisher(publisherOf("ab".getBytes()), channel, 3)
         );
         assertTrue(error.getMessage().contains("Content length mismatch"));
     }

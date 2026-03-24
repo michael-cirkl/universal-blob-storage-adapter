@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa.client.sync;
+package michaelcirkl.ubsa.client.azure;
 
 import com.azure.core.http.rest.PagedResponse;
 import com.azure.core.util.BinaryData;

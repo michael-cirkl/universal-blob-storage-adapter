@@ -3,7 +3,7 @@ package org.example.sync;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
-import michaelcirkl.ubsa.client.sync.AWSSyncClientImpl;
+import michaelcirkl.ubsa.client.aws.AWSSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.ListBucketsRequest;

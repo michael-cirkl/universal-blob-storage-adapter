@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa.client.async;
+package michaelcirkl.ubsa.client.gcp;
 
 
 import com.google.api.core.ApiFuture;
@@ -6,8 +6,6 @@ import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.*;
-import com.google.cloud.storage.Storage.BlobListOption;
-import com.google.cloud.storage.Storage.BucketListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
@@ -20,16 +18,11 @@ import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.*;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.channels.WritableByteChannel;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -74,17 +67,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                 withBlobReadSession(blobId, session -> {
                     BlobInfo blobInfo = session.getBlobInfo();
                     return toCompletableFuture(session.readAs(ReadProjectionConfigs.asFutureBytes()))
-                            .thenApply(content -> Blob.builder()
-                                    .bucket(bucketName)
-                                    .key(blobKey)
-                                    .content(content)
-                                    .size(blobInfo.getSize() == null ? 0L : blobInfo.getSize())
-                                    .lastModified(toLocalDateTime(blobInfo.getUpdateTimeOffsetDateTime()))
-                                    .encoding(blobInfo.getContentEncoding())
-                                    .etag(blobInfo.getEtag())
-                                    .userMetadata(blobInfo.getMetadata())
-                                    .publicURI(toGsUri(bucketName, blobKey))
-                                    .build());
+                            .thenApply(content -> GCPClientSupport.mapFetchedBlob(bucketName, blobKey, blobInfo, content));
                 })
         );
     }
@@ -92,7 +75,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public Flow.Publisher<ByteBuffer> openBlobStream(String bucketName, String blobKey) {
         return FlowPublisherBridge.mapErrors(
-                new GcpReadChannelFlowPublisher(client, BlobId.of(bucketName, blobKey), IO_EXECUTOR),
+                new GCPReadChannelFlowPublisher(client, BlobId.of(bucketName, blobKey), IO_EXECUTOR),
                 exceptionHandler::propagate
         );
     }
@@ -172,22 +155,22 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<ListingPage<Bucket>> listBuckets(PageRequest request) {
-        PageRequest pageRequest = normalizePageRequest(request);
+        PageRequest pageRequest = GCPClientSupport.normalizePageRequest(request);
         return exceptionHandler.handleAsync(
                 CompletableFuture.supplyAsync(() -> {
-                    Page<com.google.cloud.storage.Bucket> bucketPage = client.list(buildBucketListOptions(pageRequest));
-                    return ListingPage.of(mapBuckets(bucketPage.getValues()), bucketPage.getNextPageToken());
+                    Page<com.google.cloud.storage.Bucket> bucketPage = client.list(GCPClientSupport.buildBucketListOptions(pageRequest));
+                    return ListingPage.of(GCPClientSupport.mapBuckets(bucketPage.getValues()), bucketPage.getNextPageToken());
                 }, IO_EXECUTOR)
         );
     }
 
     @Override
     public CompletableFuture<ListingPage<Blob>> listBlobs(String bucketName, String prefix, PageRequest request) {
-        PageRequest pageRequest = normalizePageRequest(request);
+        PageRequest pageRequest = GCPClientSupport.normalizePageRequest(request);
         return exceptionHandler.handleAsync(
                 CompletableFuture.supplyAsync(() -> {
-                    Page<com.google.cloud.storage.Blob> blobPage = client.list(bucketName, buildBlobListOptions(prefix, pageRequest));
-                    return ListingPage.of(mapBlobsFromPage(bucketName, blobPage.getValues()), blobPage.getNextPageToken());
+                    Page<com.google.cloud.storage.Blob> blobPage = client.list(bucketName, GCPClientSupport.buildBlobListOptions(prefix, pageRequest));
+                    return ListingPage.of(GCPClientSupport.mapBlobsFromPage(bucketName, blobPage.getValues()), blobPage.getNextPageToken());
                 }, IO_EXECUTOR)
         );
     }
@@ -233,29 +216,12 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
-        return exceptionHandler.handle(() -> {
-            long seconds = toPositiveSeconds(expiry);
-            BlobInfo blobInfo = BlobInfo.newBuilder(bucket, objectKey).build();
-            return client.signUrl(blobInfo, seconds, TimeUnit.SECONDS);
-        });
+        return exceptionHandler.handle(() -> GCPClientSupport.generateGetUrl(client, bucket, objectKey, expiry));
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        return exceptionHandler.handle(() -> {
-            long seconds = toPositiveSeconds(expiry);
-            BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucket, objectKey);
-            if (contentType != null && !contentType.isBlank()) {
-                blobBuilder.setContentType(contentType);
-            }
-            BlobInfo blobInfo = blobBuilder.build();
-            var options = new ArrayList<Storage.SignUrlOption>();
-            options.add(Storage.SignUrlOption.httpMethod(HttpMethod.PUT));
-            if (contentType != null && !contentType.isBlank()) {
-                options.add(Storage.SignUrlOption.withContentType());
-            }
-            return client.signUrl(blobInfo, seconds, TimeUnit.SECONDS, options.toArray(new Storage.SignUrlOption[0]));
-        });
+        return exceptionHandler.handle(() -> GCPClientSupport.generatePutUrl(client, bucket, objectKey, expiry, contentType));
     }
 
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content, Storage.BlobWriteOption... writeOptions) {
@@ -278,7 +244,7 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, Flow.Publisher<ByteBuffer> content, long contentLength) {
         BlobWriteSession writeSession = client.blobWriteSession(blobInfo);
         try (WritableByteChannel channel = writeSession.open()) {
-            GcpFlowPublisherChannelWriter.writeFromPublisher(content, channel, contentLength);
+            GCPFlowPublisherChannelWriter.writeFromPublisher(content, channel, contentLength);
         } catch (IOException e) {
             throw new UbsaException("Failed to write streamed blob content to GCS.", e);
         }
@@ -340,79 +306,6 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         return blobBuilder.build();
     }
 
-    private List<Bucket> mapBuckets(Iterable<com.google.cloud.storage.Bucket> bucketItems) {
-        List<Bucket> buckets = new ArrayList<>();
-        bucketItems.forEach(gcsBucket -> {
-            LocalDateTime created = toLocalDateTime(gcsBucket.getCreateTimeOffsetDateTime());
-            LocalDateTime updated = toLocalDateTime(gcsBucket.getUpdateTimeOffsetDateTime());
-            buckets.add(Bucket.builder()
-                    .name(gcsBucket.getName())
-                    .publicURI(toGsUri(gcsBucket.getName(), null))
-                    .creationDate(created)
-                    .lastModified(updated)
-                    .build());
-        });
-        return buckets;
-    }
-
-    private List<Blob> mapBlobsFromPage(String bucketName, Iterable<com.google.cloud.storage.Blob> blobItems) {
-        List<Blob> blobs = new ArrayList<>();
-        blobItems.forEach(gcsBlob -> blobs.add(Blob.builder()
-                .bucket(bucketName)
-                .key(gcsBlob.getName())
-                .size(gcsBlob.getSize())
-                .lastModified(toLocalDateTime(gcsBlob.getUpdateTimeOffsetDateTime()))
-                .encoding(gcsBlob.getContentEncoding())
-                .etag(gcsBlob.getEtag())
-                .userMetadata(gcsBlob.getMetadata())
-                .publicURI(toGsUri(bucketName, gcsBlob.getName()))
-                .build()));
-        return blobs;
-    }
-
-    private BucketListOption[] buildBucketListOptions(PageRequest request) {
-        List<BucketListOption> options = new ArrayList<>();
-        if (request.getPageSize() != null) {
-            options.add(BucketListOption.pageSize(request.getPageSize()));
-        }
-        if (request.getContinuationToken() != null) {
-            options.add(BucketListOption.pageToken(request.getContinuationToken()));
-        }
-        return options.toArray(BucketListOption[]::new);
-    }
-
-    private BlobListOption[] buildBlobListOptions(String prefix, PageRequest request) {
-        List<BlobListOption> options = new ArrayList<>();
-        if (prefix != null && !prefix.isBlank()) {
-            options.add(BlobListOption.prefix(prefix));
-        }
-        if (request.getPageSize() != null) {
-            options.add(BlobListOption.pageSize(request.getPageSize()));
-        }
-        if (request.getContinuationToken() != null) {
-            options.add(BlobListOption.pageToken(request.getContinuationToken()));
-        }
-        return options.toArray(BlobListOption[]::new);
-    }
-
-    private LocalDateTime toLocalDateTime(OffsetDateTime time) {
-        return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
-    }
-
-    private URI toGsUri(String bucketName, String objectKey) {
-        String uri = (objectKey == null || objectKey.isBlank())
-                ? "gs://" + bucketName
-                : "gs://" + bucketName + "/" + objectKey;
-        return URI.create(uri);
-    }
-
-    private long toPositiveSeconds(Duration expiry) {
-        if (expiry == null || expiry.isZero() || expiry.isNegative()) {
-            throw new IllegalArgumentException("Expiry must be a positive duration.");
-        }
-        return expiry.toSeconds();
-    }
-
     private void validateRange(long startInclusive, long endInclusive) {
         if (startInclusive < 0 || endInclusive < startInclusive) {
             throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
@@ -425,9 +318,5 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         } catch (IOException ignored) {
 
         }
-    }
-
-    private PageRequest normalizePageRequest(PageRequest request) {
-        return request == null ? PageRequest.firstPage() : request;
     }
 }

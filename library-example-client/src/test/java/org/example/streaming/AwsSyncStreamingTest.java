@@ -1,7 +1,7 @@
 package org.example.streaming;
 
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
-import michaelcirkl.ubsa.client.sync.AWSSyncClientImpl;
+import michaelcirkl.ubsa.client.aws.AWSSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;

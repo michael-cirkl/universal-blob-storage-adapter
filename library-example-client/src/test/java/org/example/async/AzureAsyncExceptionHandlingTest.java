@@ -6,7 +6,7 @@ import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
-import michaelcirkl.ubsa.client.async.AzureAsyncClientImpl;
+import michaelcirkl.ubsa.client.azure.AzureAsyncClientImpl;
 import michaelcirkl.ubsa.client.exception.UbsaException;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;

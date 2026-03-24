@@ -1,4 +1,4 @@
-package michaelcirkl.ubsa.client.streaming;
+package michaelcirkl.ubsa.client.gcp;
 
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.BlobId;
@@ -9,12 +9,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
 
-public final class GcpReadChannelFlowPublisher implements Flow.Publisher<ByteBuffer> {
+public final class GCPReadChannelFlowPublisher implements Flow.Publisher<ByteBuffer> {
     private final Storage storage;
     private final BlobId blobId;
     private final Executor executor;
 
-    public GcpReadChannelFlowPublisher(Storage storage, BlobId blobId, Executor executor) {
+    public GCPReadChannelFlowPublisher(Storage storage, BlobId blobId, Executor executor) {
         this.storage = storage;
         this.blobId = blobId;
         this.executor = executor;

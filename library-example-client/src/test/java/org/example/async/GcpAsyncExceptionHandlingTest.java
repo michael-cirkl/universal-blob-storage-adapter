@@ -5,7 +5,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageException;
-import michaelcirkl.ubsa.client.async.GCPAsyncClientImpl;
+import michaelcirkl.ubsa.client.gcp.GCPAsyncClientImpl;
 import michaelcirkl.ubsa.client.exception.UbsaException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

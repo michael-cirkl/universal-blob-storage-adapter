@@ -8,7 +8,7 @@ import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
-import michaelcirkl.ubsa.client.async.AzureAsyncClientImpl;
+import michaelcirkl.ubsa.client.azure.AzureAsyncClientImpl;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

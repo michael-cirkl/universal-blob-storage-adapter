@@ -10,7 +10,7 @@ import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.storage.blob.options.BlobUploadFromFileOptions;
 import com.azure.storage.blob.specialized.BlobInputStream;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
-import michaelcirkl.ubsa.client.sync.AzureSyncClientImpl;
+import michaelcirkl.ubsa.client.azure.AzureSyncClientImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
