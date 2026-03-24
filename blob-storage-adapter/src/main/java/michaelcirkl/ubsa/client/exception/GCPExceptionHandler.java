@@ -41,6 +41,14 @@ public class GCPExceptionHandler {
         return new UbsaException(error.getMessage(), error);
     }
 
+    public void closeQuietly(IORunnable action) {
+        try {
+            action.run();
+        } catch (IOException ignored) {
+
+        }
+    }
+
     public RuntimeException propagate(Throwable error) {
         Throwable cause = unwrap(error);
         if (cause instanceof UbsaException ubsaException) {
@@ -67,5 +75,9 @@ public class GCPExceptionHandler {
 
     public interface IOSupplier<T> { // basically just Supplier<T> (function with no args), but can throw IOException.
         T get() throws IOException;
+    }
+
+    public interface IORunnable {
+        void run() throws IOException;
     }
 }

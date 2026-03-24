@@ -11,13 +11,11 @@ import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.GCPExceptionHandler;
-import michaelcirkl.ubsa.client.exception.UbsaException;
 import michaelcirkl.ubsa.client.pagination.AsyncBucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.*;
 
-import java.io.IOException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -238,16 +236,16 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content, Storage.BlobWriteOption... writeOptions) {
-        BlobWriteSession writeSession = client.blobWriteSession(blobInfo, writeOptions);
-        try (WritableByteChannel channel = writeSession.open()) {
-            ByteBuffer buffer = ByteBuffer.wrap(content);
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
+        return exceptionHandler.handle(() -> {
+            BlobWriteSession writeSession = client.blobWriteSession(blobInfo, writeOptions);
+            try (WritableByteChannel channel = writeSession.open()) {
+                ByteBuffer buffer = ByteBuffer.wrap(content);
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
             }
-        } catch (IOException e) {
-            throw new UbsaException("Failed to write blob content to GCS.", e);
-        }
-        return writeSession.getResult();
+            return writeSession.getResult();
+        });
     }
 
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content) {
@@ -255,23 +253,19 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, Flow.Publisher<ByteBuffer> content, long contentLength) {
-        BlobWriteSession writeSession = client.blobWriteSession(blobInfo);
-        try (WritableByteChannel channel = writeSession.open()) {
-            GCPFlowPublisherChannelWriter.writeFromPublisher(content, channel, contentLength);
-        } catch (IOException e) {
-            throw new UbsaException("Failed to write streamed blob content to GCS.", e);
-        }
-        return writeSession.getResult();
+        return exceptionHandler.handle(() -> {
+            BlobWriteSession writeSession = client.blobWriteSession(blobInfo);
+            try (WritableByteChannel channel = writeSession.open()) {
+                GCPFlowPublisherChannelWriter.writeFromPublisher(content, channel, contentLength);
+            }
+            return writeSession.getResult();
+        });
     }
 
     private String createBlobFromFile(BlobInfo blobInfo, Path sourceFile) {
-        try {
-            return client.createFrom(blobInfo, sourceFile).getEtag();
-        } catch (IOException e) {
-            throw new UbsaException(
-                    "Failed to create GCP blob gs://" + blobInfo.getBucket() + "/" + blobInfo.getName() + " from file", e
-            );
-        }
+        return exceptionHandler.handle(
+                () -> client.createFrom(blobInfo, sourceFile).getEtag()
+        );
     }
 
     private <T> CompletableFuture<T> withBlobReadSession(
@@ -326,10 +320,6 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     private void closeQuietly(BlobReadSession session) {
-        try {
-            session.close();
-        } catch (IOException ignored) {
-
-        }
+        exceptionHandler.closeQuietly(session::close);
     }
 }
