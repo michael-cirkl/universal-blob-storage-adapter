@@ -11,6 +11,7 @@ import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.GCPExceptionHandler;
+import michaelcirkl.ubsa.client.pagination.BucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
@@ -169,6 +170,11 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             Page<com.google.cloud.storage.Blob> blobPage = client.list(bucketName, buildBlobListOptions(prefix, pageRequest));
             return ListingPage.of(mapBlobsFromPage(bucketName, blobPage.getValues()), blobPage.getNextPageToken());
         });
+    }
+
+    @Override
+    public List<Bucket> listAllBuckets() {
+        return BucketListingSupport.listAllBuckets(this::listBuckets);
     }
 
     @Override

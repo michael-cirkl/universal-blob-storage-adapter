@@ -13,6 +13,7 @@ import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.AzureExceptionHandler;
+import michaelcirkl.ubsa.client.pagination.BucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
@@ -197,6 +198,11 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
             PagedResponse<BlobItem> page = pages.next();
             return ListingPage.of(mapBlobsFromList(bucketName, containerClient, page.getElements()), page.getContinuationToken());
         });
+    }
+
+    @Override
+    public List<Bucket> listAllBuckets() {
+        return BucketListingSupport.listAllBuckets(this::listBuckets);
     }
 
     @Override

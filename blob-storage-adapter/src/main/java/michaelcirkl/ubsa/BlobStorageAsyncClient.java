@@ -9,6 +9,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 
@@ -46,6 +47,8 @@ public interface BlobStorageAsyncClient {
 
     CompletableFuture<ListingPage<Blob>> listBlobs(String bucketName, String prefix, PageRequest request);
 
+    CompletableFuture<List<Bucket>> listAllBuckets();
+
     default Flow.Publisher<Bucket> streamBuckets(int pageSize) {
         return new PagedFlowPublisher<>(PageRequest.builder().pageSize(pageSize).build(), this::listBuckets);
     }
@@ -66,5 +69,4 @@ public interface BlobStorageAsyncClient {
     URL generateGetUrl(String bucket, String objectKey, Duration expiry);
 
     URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
-
 }

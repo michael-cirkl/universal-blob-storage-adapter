@@ -3,6 +3,7 @@ package michaelcirkl.ubsa.client.async;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.pagination.AsyncBucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.util.AwsClientSupport;
@@ -18,6 +19,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 
@@ -205,6 +207,11 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
                                 response.nextContinuationToken()
                         ))
         );
+    }
+
+    @Override
+    public CompletableFuture<List<Bucket>> listAllBuckets() {
+        return AsyncBucketListingSupport.listAllBuckets(this::listBuckets);
     }
 
     @Override

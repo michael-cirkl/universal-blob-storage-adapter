@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 
 public interface BlobStorageSyncClient {
     Provider getProvider();
@@ -43,6 +44,8 @@ public interface BlobStorageSyncClient {
     ListingPage<Bucket> listBuckets(PageRequest request);
 
     ListingPage<Blob> listBlobs(String bucketName, String prefix, PageRequest request);
+
+    List<Bucket> listAllBuckets();
 
     default Iterable<Bucket> iterateBuckets(int pageSize) {
         return new PagedIterable<>(PageRequest.builder().pageSize(pageSize).build(), this::listBuckets);

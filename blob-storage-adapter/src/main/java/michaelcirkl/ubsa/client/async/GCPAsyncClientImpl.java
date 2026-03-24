@@ -14,6 +14,7 @@ import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.GCPExceptionHandler;
 import michaelcirkl.ubsa.client.exception.UbsaException;
+import michaelcirkl.ubsa.client.pagination.AsyncBucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.*;
@@ -189,6 +190,11 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
                     return ListingPage.of(mapBlobsFromPage(bucketName, blobPage.getValues()), blobPage.getNextPageToken());
                 }, IO_EXECUTOR)
         );
+    }
+
+    @Override
+    public CompletableFuture<List<Bucket>> listAllBuckets() {
+        return AsyncBucketListingSupport.listAllBuckets(this::listBuckets);
     }
 
     @Override

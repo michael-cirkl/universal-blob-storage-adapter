@@ -12,6 +12,7 @@ import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import michaelcirkl.ubsa.*;
 import michaelcirkl.ubsa.client.exception.AzureExceptionHandler;
+import michaelcirkl.ubsa.client.pagination.AsyncBucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.*;
@@ -210,6 +211,11 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
                         .defaultIfEmpty(ListingPage.of(List.of(), null))
                         .toFuture()
         );
+    }
+
+    @Override
+    public CompletableFuture<List<Bucket>> listAllBuckets() {
+        return AsyncBucketListingSupport.listAllBuckets(this::listBuckets);
     }
 
     @Override

@@ -2,6 +2,7 @@ package michaelcirkl.ubsa.client.sync;
 
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.*;
+import michaelcirkl.ubsa.client.pagination.BucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.util.AwsClientSupport;
@@ -19,6 +20,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 
 public class AWSSyncClientImpl implements BlobStorageSyncClient {
     private final AWSExceptionHandler exceptionHandler = new AWSExceptionHandler();
@@ -218,6 +220,11 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
             return ListingPage.of(AwsClientSupport.mapBlobsFromList(bucketName, response), response.nextContinuationToken());
         });
+    }
+
+    @Override
+    public List<Bucket> listAllBuckets() {
+        return BucketListingSupport.listAllBuckets(this::listBuckets);
     }
 
     @Override
