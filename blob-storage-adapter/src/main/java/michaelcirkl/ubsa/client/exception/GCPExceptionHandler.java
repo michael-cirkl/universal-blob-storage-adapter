@@ -10,10 +10,8 @@ public class GCPExceptionHandler {
     public <T> T handle(IOSupplier<T> action) {
         try {
             return action.get();
-        } catch (StorageException error) {
-            throw new UbsaException(error.getMessage(), error, error.getCode());
-        } catch (IOException error) {
-            throw new UbsaException(error.getMessage(), error);
+        } catch (Throwable error) {
+            throw propagate(error);
         }
     }
 
@@ -37,10 +35,6 @@ public class GCPExceptionHandler {
         return new UbsaException(error.getMessage(), error, error.getCode());
     }
 
-    public UbsaException wrap(IOException error) {
-        return new UbsaException(error.getMessage(), error);
-    }
-
     public void closeQuietly(IORunnable action) {
         try {
             action.run();
@@ -54,19 +48,13 @@ public class GCPExceptionHandler {
         if (cause instanceof UbsaException ubsaException) {
             return ubsaException;
         }
+        if (cause instanceof IOException ioException) {
+            return new UbsaException(ioException.getMessage(), ioException);
+        }
         if (cause instanceof StorageException storageException) {
             return wrap(storageException);
         }
-        if (cause instanceof IOException ioException) {
-            return wrap(ioException);
-        }
-        if (cause instanceof RuntimeException runtimeException) {
-            return runtimeException;
-        }
-        if (cause instanceof Error severeError) {
-            throw severeError;
-        }
-        return new CompletionException(cause);
+        return new UbsaException(cause.getMessage(), cause);
     }
 
     public boolean isNotFound(StorageException error) {

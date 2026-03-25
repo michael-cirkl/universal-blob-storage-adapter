@@ -1,7 +1,9 @@
 package michaelcirkl.ubsa.client.exception;
 
 import com.azure.storage.blob.models.BlobStorageException;
+import michaelcirkl.ubsa.client.exception.types.*;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
@@ -10,8 +12,8 @@ public class AzureExceptionHandler {
     public <T> T handle(Supplier<T> action) {
         try {
             return action.get();
-        } catch (BlobStorageException error) { // here can catch all specific Azure exception types and handle them
-            throw new UbsaException(error.getMessage(), error, error.getStatusCode());
+        } catch (Throwable error) { // here can catch all specific Azure exception types and handle them
+            throw propagate(error);
         }
     }
 
@@ -40,15 +42,67 @@ public class AzureExceptionHandler {
         if (cause instanceof UbsaException ubsaException) {
             return ubsaException;
         }
-        if (cause instanceof BlobStorageException blobStorageException) {
-            return wrap(blobStorageException);
+        if (cause instanceof IOException ioException) {
+            return new UbsaException(ioException.getMessage(), ioException);
         }
-        if (cause instanceof RuntimeException runtimeException) {
-            return runtimeException;
+        if (cause instanceof BlobStorageException e) {
+                switch (e.getErrorCode().toString()) {
+                    case "ContainerNotFound":
+                        return new BucketNotFoundException(e.getMessage(), e, e.getStatusCode());
+                    case "BlobNotFound":
+                        return new BlobNotFoundException(e.getMessage(), e, e.getStatusCode());
+                    case "ContainerAlreadyExists":
+                        return new BucketAlreadyExistsException(e.getMessage(), e, e.getStatusCode());
+                    case "ConditionNotMet",
+                         "AppendPositionConditionNotMet",
+                         "MaxBlobSizeConditionNotMet",
+                         "SequenceNumberConditionNotMet",
+                         "SourceConditionNotMet",
+                         "TargetConditionNotMet":
+                        return new ConditionFailedException(e.getMessage(), e, e.getStatusCode());
+                    case "AuthenticationFailed",
+                         "InvalidAuthenticationInfo",
+                         "NoAuthenticationInformation":
+                        return new AuthenticationFailedException(e.getMessage(), e, e.getStatusCode());
+                    case "AuthorizationFailure",
+                         "AuthorizationPermissionMismatch",
+                         "AuthorizationProtocolMismatch",
+                         "AuthorizationResourceTypeMismatch",
+                         "AuthorizationServiceMismatch",
+                         "AuthorizationSourceIPMismatch":
+                        return new AccessDeniedException(e.getMessage(), e, e.getStatusCode());
+                    case "OperationTimedOut":
+                        return new RequestTimeoutException(e.getMessage(), e, e.getStatusCode());
+                    case "ConditionHeadersNotSupported",
+                         "InvalidBlobOrBlock",
+                         "InvalidBlobTier",
+                         "InvalidBlobType",
+                         "InvalidBlockId",
+                         "InvalidBlockList",
+                         "InvalidHeaderValue",
+                         "InvalidHttpVerb",
+                         "InvalidInput",
+                         "InvalidMd5",
+                         "InvalidMetadata",
+                         "InvalidOperation",
+                         "InvalidPageRange",
+                         "InvalidQueryParameterValue",
+                         "InvalidRange",
+                         "InvalidResourceName",
+                         "InvalidSourceBlobType",
+                         "InvalidSourceBlobUrl",
+                         "InvalidUri",
+                         "InvalidVersionForPageBlobOperation",
+                         "InvalidXmlDocument",
+                         "InvalidXmlNodeValue",
+                         "MultipleConditionHeadersNotSupported",
+                         "RequestBodyTooLarge",
+                         "RequestUrlFailedToParse",
+                         "ResourceTypeMismatch":
+                        return new InvalidRequestException(e.getMessage(), e, e.getStatusCode());
+                }
+            return wrap(e);
         }
-        if (cause instanceof Error severeError) {
-            throw severeError;
-        }
-        return new CompletionException(cause);
+        return new UbsaException(cause.getMessage(), cause);
     }
 }

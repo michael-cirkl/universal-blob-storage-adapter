@@ -1,9 +1,11 @@
 package michaelcirkl.ubsa.client.exception;
 
+import michaelcirkl.ubsa.client.exception.types.*;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
@@ -13,7 +15,7 @@ public final class AWSExceptionHandler {
         try {
             return action.get();
         } catch (S3Exception error) { // here can catch all specific S3 exception types and handle them
-            throw new UbsaException(error.getMessage(), error, error.statusCode());
+            throw propagate(error);
         }
     }
 
@@ -42,16 +44,40 @@ public final class AWSExceptionHandler {
         if (cause instanceof UbsaException ubsaException) {
             return ubsaException;
         }
-        if (cause instanceof S3Exception s3Exception) {
-            return wrap(s3Exception);
+        if (cause instanceof IOException ioException) {
+            return new UbsaException(ioException.getMessage(), ioException);
         }
-        if (cause instanceof RuntimeException runtimeException) {
-            return runtimeException;
+        if (cause instanceof S3Exception e) {
+            switch (e.awsErrorDetails().errorCode()) {
+                case "NoSuchBucket":
+                    return new BucketNotFoundException(e.getMessage(), e, e.statusCode());
+                case "NoSuchKey":
+                    return new BlobNotFoundException(e.getMessage(), e, e.statusCode());
+                case "BucketAlreadyExists", "BucketAlreadyOwnedByYou":
+                    return new BucketAlreadyExistsException(e.getMessage(), e, e.statusCode());
+                case "BucketNotEmpty":
+                    return new BucketNotEmptyException(e.getMessage(), e, e.statusCode());
+                case "PreconditionFailed":
+                    return new ConditionFailedException(e.getMessage(), e, e.statusCode());
+                case "InvalidToken", "ExpiredToken":
+                    return new AuthenticationFailedException(e.getMessage(), e, e.statusCode());
+                case "AccessDenied":
+                    return new AccessDeniedException(e.getMessage(), e, e.statusCode());
+                case "RequestTimeout":
+                    return new RequestTimeoutException(e.getMessage(), e, e.statusCode());
+                case    "InvalidArgument",
+                        "InvalidBucketName",
+                        "InvalidRange",
+                        "InvalidDigest",
+                        "BadDigest",
+                        "InvalidRequest",
+                        "InvalidStorageClass",
+                        "InvalidURI":
+                    return new InvalidRequestException(e.getMessage(), e, e.statusCode());
+            }
+            return wrap(e);
         }
-        if (cause instanceof Error severeError) {
-            throw severeError;
-        }
-        return new CompletionException(cause);
+        return new UbsaException(cause.getMessage(), cause);
     }
 
     public boolean isNotFound(S3Exception error) {
