@@ -36,7 +36,16 @@ public final class FlowPublisherBridge {
 
             @Override
             public void onError(Throwable throwable) {
-                downstream.onError(errorMapper.apply(throwable));
+                Throwable mappedError;
+                try {
+                    mappedError = errorMapper.apply(throwable);
+                } catch (Throwable mapperFailure) {
+                    downstream.onError(mapperFailure);
+                    return;
+                }
+                downstream.onError(mappedError == null
+                        ? new NullPointerException("errorMapper returned null")
+                        : mappedError);
             }
 
             @Override

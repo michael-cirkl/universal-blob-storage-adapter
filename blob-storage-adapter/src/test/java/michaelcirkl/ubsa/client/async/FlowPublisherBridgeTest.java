@@ -281,4 +281,46 @@ class FlowPublisherBridgeTest {
 
         assertSame(mapped, observedError.get());
     }
+
+    @Test
+    void mapErrorsPropagatesMapperFailuresAsTerminalSignal() {
+        RuntimeException failure = new RuntimeException("boom");
+        IllegalStateException mapperFailure = new IllegalStateException("mapper failed");
+        AtomicReference<Throwable> observedError = new AtomicReference<>();
+
+        FlowPublisherBridge.mapErrors((Flow.Publisher<Integer>) subscriber -> {
+            subscriber.onSubscribe(new Flow.Subscription() {
+                @Override
+                public void request(long n) {
+                }
+
+                @Override
+                public void cancel() {
+                }
+            });
+            subscriber.onError(failure);
+        }, error -> {
+            throw mapperFailure;
+        }).subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                subscription.request(1);
+            }
+
+            @Override
+            public void onNext(Integer item) {
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                observedError.set(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+            }
+        });
+
+        assertSame(mapperFailure, observedError.get());
+    }
 }

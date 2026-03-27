@@ -48,7 +48,11 @@ public final class AWSExceptionHandler {
             return new UbsaException(ioException.getMessage(), ioException);
         }
         if (cause instanceof S3Exception e) {
-            switch (e.awsErrorDetails().errorCode()) {
+            String errorCode = e.awsErrorDetails() == null ? null : e.awsErrorDetails().errorCode();
+            if (errorCode == null || errorCode.isBlank()) {
+                return wrap(e);
+            }
+            switch (errorCode) {
                 case "NoSuchBucket":
                     return new BucketNotFoundException(e.getMessage(), e, e.statusCode());
                 case "NoSuchKey":
