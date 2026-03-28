@@ -37,7 +37,7 @@ public class AzureExceptionHandler {
         return new UbsaException(error.getMessage(), error, error.getStatusCode());
     }
 
-    public RuntimeException propagate(Throwable error) {
+    public UbsaException propagate(Throwable error) {
         Throwable cause = unwrap(error);
         if (cause instanceof UbsaException ubsaException) {
             return ubsaException;

@@ -43,7 +43,7 @@ public class GCPExceptionHandler {
         }
     }
 
-    public RuntimeException propagate(Throwable error) {
+    public UbsaException propagate(Throwable error) {
         Throwable cause = unwrap(error);
         if (cause instanceof UbsaException ubsaException) {
             return ubsaException;
