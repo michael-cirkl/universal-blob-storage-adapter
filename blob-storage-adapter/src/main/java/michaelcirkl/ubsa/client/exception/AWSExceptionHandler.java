@@ -59,8 +59,6 @@ public final class AWSExceptionHandler {
                     return new BlobNotFoundException(e.getMessage(), e, e.statusCode());
                 case "BucketAlreadyExists", "BucketAlreadyOwnedByYou":
                     return new BucketAlreadyExistsException(e.getMessage(), e, e.statusCode());
-                case "BucketNotEmpty":
-                    return new BucketNotEmptyException(e.getMessage(), e, e.statusCode());
                 case "PreconditionFailed":
                     return new ConditionFailedException(e.getMessage(), e, e.statusCode());
                 case "InvalidToken", "ExpiredToken":
