@@ -8,7 +8,7 @@ import java.util.Map;
  * Provider-neutral representation of a blob/object and its associated metadata.
  *
  * <p>Instances returned by listing or metadata-only operations may omit {@link #getContent()}.
- * Timestamp fields are normalized to UTC when the underlying provider exposes timezone-aware values.
+ * Timestamp fields are stored in UTC.
  */
 public class Blob {
     private final byte[] content;
@@ -57,6 +57,11 @@ public class Blob {
         return key;
     }
     
+    /**
+     * Returns the provider-reported last-modified timestamp.
+     *
+     * <p>UBSA converts timezone-aware provider timestamps to UTC.
+     */
     public LocalDateTime lastModified() {
         return lastModified;
     }
@@ -97,6 +102,8 @@ public class Blob {
 
     /**
      * Returns the blob expiry timestamp when the provider exposes it.
+     *
+     * <p>UBSA converts timezone-aware provider timestamps to UTC.
      */
     public LocalDateTime expires() {
         return expires;
