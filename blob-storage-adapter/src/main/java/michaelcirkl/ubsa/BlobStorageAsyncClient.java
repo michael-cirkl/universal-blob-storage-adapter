@@ -33,6 +33,7 @@ public interface BlobStorageAsyncClient {
     CompletableFuture<String> createBlob(String bucketName, Blob blob);
 
     CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile);
+    CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile, BlobWriteOptions options);
 
     CompletableFuture<String> createBlob(String bucketName, String blobKey, Flow.Publisher<ByteBuffer> content, long contentLength, BlobWriteOptions options);
 

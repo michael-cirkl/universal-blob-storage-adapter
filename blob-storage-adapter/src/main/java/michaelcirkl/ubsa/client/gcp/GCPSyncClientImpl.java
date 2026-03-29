@@ -109,9 +109,16 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public String createBlob(String bucketName, String blobKey, Path sourceFile) {
+        return createBlob(bucketName, blobKey, sourceFile, null);
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, Path sourceFile, BlobWriteOptions options) {
         FileUploadValidators.validateSourceFile(sourceFile);
         return exceptionHandler.handle(() -> {
-            BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
+            BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucketName, blobKey);
+            WriteOptionsMappers.applyOptionsToGcpBlobInfo(blobBuilder, options);
+            BlobInfo blobInfo = blobBuilder.build();
             return client.createFrom(blobInfo, sourceFile).getEtag();
         });
     }

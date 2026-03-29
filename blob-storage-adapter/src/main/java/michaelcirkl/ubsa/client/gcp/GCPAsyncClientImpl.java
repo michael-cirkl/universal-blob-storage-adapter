@@ -123,8 +123,13 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile) {
+        return createBlob(bucketName, blobKey, sourceFile, null);
+    }
+
+    @Override
+    public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile, BlobWriteOptions options) {
         FileUploadValidators.validateSourceFile(sourceFile);
-        BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
+        BlobInfo blobInfo = buildBlobInfo(bucketName, blobKey, options);
         return exceptionHandler.handleAsync(
                 CompletableFuture.supplyAsync(() -> createBlobFromFile(blobInfo, sourceFile), IO_EXECUTOR)
         );

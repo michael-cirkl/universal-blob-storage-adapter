@@ -135,10 +135,19 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public String createBlob(String bucketName, String blobKey, Path sourceFile) {
+        return createBlob(bucketName, blobKey, sourceFile, null);
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, Path sourceFile, BlobWriteOptions options) {
         FileUploadValidators.validateSourceFile(sourceFile);
         return exceptionHandler.handle(() -> {
             BlobClient blobClient = blobClient(bucketName, blobKey);
-            BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString());
+            BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
+            Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
+            BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString())
+                    .setHeaders(headers)
+                    .setMetadata(metadata);
             return blobClient.uploadFromFileWithResponse(uploadOptions, null, Context.NONE)
                     .getValue()
                     .getETag();

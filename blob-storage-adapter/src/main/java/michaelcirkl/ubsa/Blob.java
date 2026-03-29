@@ -4,6 +4,12 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+/**
+ * Provider-neutral representation of a blob/object and its associated metadata.
+ *
+ * <p>Instances returned by listing or metadata-only operations may omit {@link #getContent()}.
+ * Timestamp fields are normalized to UTC when the underlying provider exposes timezone-aware values.
+ */
 public class Blob {
     private final byte[] content;
     private final long size;
@@ -29,11 +35,20 @@ public class Blob {
         this.expires = builder.expires;
     }
 
+    /**
+     * Returns the blob content loaded into memory.
+     *
+     * <p>{@link michaelcirkl.ubsa.BlobStorageSyncClient#getBlobMetadata(String, String)},
+     * {@link michaelcirkl.ubsa.BlobStorageAsyncClient#getBlobMetadata(String, String)}, listing operations,
+     * and other metadata-only reads return {@code null}.
+     */
     public byte[] getContent() {
-        // Metadata-only reads and listing operations can return Blob instances without in-memory content.
         return content;
     }
 
+    /**
+     * Returns the blob size in bytes.
+     */
     public long getSize() {
         return size;
     }
@@ -41,23 +56,37 @@ public class Blob {
     public String getKey() {
         return key;
     }
-
+    
     public LocalDateTime lastModified() {
         return lastModified;
     }
 
+    /**
+     * Returns the content encoding reported by the provider.
+     */
     public String encoding() {
         return encoding;
     }
 
+    /**
+     * Returns the provider ETag, typically an identifier for a specific version of the blob content.
+     */
     public String getEtag() {
         return etag;
     }
 
+    /**
+     * Returns user-defined metadata attached to the blob.
+     */
     public Map<String, String> getUserMetadata() {
         return userMetadata;
     }
 
+    /**
+     * Returns a provider-specific URI for this blob.
+     *
+     * <p>This value is intended for identification and linking. It does not guarantee anonymous/public access.
+     */
     public URI getPublicURI() {
         return publicURI;
     }
@@ -66,6 +95,9 @@ public class Blob {
         return bucket;
     }
 
+    /**
+     * Returns the blob expiry timestamp when the provider exposes it.
+     */
     public LocalDateTime expires() {
         return expires;
     }
@@ -86,51 +118,101 @@ public class Blob {
         private String bucket;
         private LocalDateTime expires;
 
+        /**
+         * Sets the in-memory blob payload.
+         *
+         * @param content the blob bytes
+         */
         public Builder content(byte[] content) {
             this.content = content;
             return this;
         }
 
+        /**
+         * Sets the blob size in bytes.
+         *
+         * @param size the content length in bytes
+         */
         public Builder size(long size) {
             this.size = size;
             return this;
         }
 
+        /**
+         * Sets the provider object key.
+         *
+         * @param key the blob key within the bucket
+         */
         public Builder key(String key) {
             this.key = key;
             return this;
         }
 
+        /**
+         * Sets the last-modified timestamp.
+         *
+         * @param lastModified the last modification time in UTC
+         */
         public Builder lastModified(LocalDateTime lastModified) {
             this.lastModified = lastModified;
             return this;
         }
 
+        /**
+         * Sets the provider-reported content encoding.
+         *
+         * @param encoding the content encoding
+         */
         public Builder encoding(String encoding) {
             this.encoding = encoding;
             return this;
         }
 
+        /**
+         * Sets the provider ETag, typically an identifier for a specific version of the blob content.
+         *
+         * @param etag the ETag value
+         */
         public Builder etag(String etag) {
             this.etag = etag;
             return this;
         }
 
+        /**
+         * Sets user-defined metadata entries.
+         *
+         * @param userMetadata the metadata map
+         */
         public Builder userMetadata(Map<String, String> userMetadata) {
             this.userMetadata = userMetadata;
             return this;
         }
 
+        /**
+         * Sets the provider-specific blob URI.
+         *
+         * @param publicURI the blob URI
+         */
         public Builder publicURI(URI publicURI) {
             this.publicURI = publicURI;
             return this;
         }
 
+        /**
+         * Sets the owning bucket or container name.
+         *
+         * @param bucket the bucket name
+         */
         public Builder bucket(String bucket) {
             this.bucket = bucket;
             return this;
         }
 
+        /**
+         * Sets the blob expiry timestamp.
+         *
+         * @param expires the expiry timestamp in UTC
+         */
         public Builder expires(LocalDateTime expires) {
             this.expires = expires;
             return this;

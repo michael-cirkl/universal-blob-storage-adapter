@@ -140,13 +140,18 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public String createBlob(String bucketName, String blobKey, Path sourceFile) {
+        return createBlob(bucketName, blobKey, sourceFile, null);
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, Path sourceFile, BlobWriteOptions options) {
         FileUploadValidators.validateSourceFile(sourceFile);
         return exceptionHandler.handle(() -> {
-            PutObjectRequest request = PutObjectRequest.builder()
+            PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                     .bucket(bucketName)
-                    .key(blobKey)
-                    .build();
-            PutObjectResponse response = client.putObject(request, RequestBody.fromFile(sourceFile));
+                    .key(blobKey);
+            WriteOptionsMappers.applyOptionsToAwsPutObject(requestBuilder, options);
+            PutObjectResponse response = client.putObject(requestBuilder.build(), RequestBody.fromFile(sourceFile));
             return response.eTag();
         });
     }

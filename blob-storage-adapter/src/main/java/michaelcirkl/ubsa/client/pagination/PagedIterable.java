@@ -5,10 +5,21 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
 
+/**
+ * Lazily iterates across all items produced by a paginated listing function.
+ *
+ * <p>Pages are loaded on demand as iteration advances, reusing the previous page size and the continuation
+ * token returned by each {@link ListingPage}.
+ */
 public final class PagedIterable<T> implements Iterable<T> {
     private final PageRequest initialRequest;
     private final Function<PageRequest, ListingPage<T>> pageLoader;
 
+    /**
+     * Creates an iterable backed by the given page loader.
+     *
+     * <p>If {@code initialRequest} is {@code null}, iteration starts from {@link PageRequest#firstPage()}.
+     */
     public PagedIterable(
             PageRequest initialRequest,
             Function<PageRequest, ListingPage<T>> pageLoader
@@ -17,6 +28,9 @@ public final class PagedIterable<T> implements Iterable<T> {
         this.pageLoader = pageLoader;
     }
 
+    /**
+     * Returns an iterator that loads additional pages only when needed.
+     */
     @Override
     public Iterator<T> iterator() {
         return new Iterator<>() {

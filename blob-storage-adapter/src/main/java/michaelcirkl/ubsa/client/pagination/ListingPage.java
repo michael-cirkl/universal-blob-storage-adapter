@@ -4,6 +4,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Iterator;
 
+/**
+ * A single page of listing results returned by a paginated UBSA operation.
+ *
+ * <p>The page contains the current items and, when available, the continuation token needed to request
+ * the next page.
+ */
 public final class ListingPage<T> implements Iterable<T> {
     private final List<T> items;
     private final String nextContinuationToken;
@@ -19,14 +25,23 @@ public final class ListingPage<T> implements Iterable<T> {
         return new ListingPage<>(items, nextContinuationToken);
     }
 
+    /**
+     * Returns the items in the current page.
+     */
     public List<T> getItems() {
         return items;
     }
 
+    /**
+     * Returns the token to pass into the next {@link PageRequest}, or {@code null} when there is no next page.
+     */
     public String getNextContinuationToken() {
         return nextContinuationToken;
     }
 
+    /**
+     * Returns whether another page is available.
+     */
     public boolean hasNextPage() {
         return hasNextPage;
     }

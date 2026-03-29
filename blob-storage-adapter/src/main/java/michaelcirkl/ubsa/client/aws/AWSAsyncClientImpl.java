@@ -125,13 +125,18 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile) {
+        return createBlob(bucketName, blobKey, sourceFile, null);
+    }
+
+    @Override
+    public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile, BlobWriteOptions options) {
         FileUploadValidators.validateSourceFile(sourceFile);
-        PutObjectRequest request = PutObjectRequest.builder()
+        PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                 .bucket(bucketName)
-                .key(blobKey)
-                .build();
+                .key(blobKey);
+        WriteOptionsMappers.applyOptionsToAwsPutObject(requestBuilder, options);
         return exceptionHandler.handleAsync(
-                client.putObject(request, AsyncRequestBody.fromFile(sourceFile))
+                client.putObject(requestBuilder.build(), AsyncRequestBody.fromFile(sourceFile))
                         .thenApply(PutObjectResponse::eTag)
         );
     }

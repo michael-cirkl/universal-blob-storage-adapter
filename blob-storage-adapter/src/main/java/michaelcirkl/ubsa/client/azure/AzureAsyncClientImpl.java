@@ -147,9 +147,18 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile) {
+        return createBlob(bucketName, blobKey, sourceFile, null);
+    }
+
+    @Override
+    public CompletableFuture<String> createBlob(String bucketName, String blobKey, Path sourceFile, BlobWriteOptions options) {
         FileUploadValidators.validateSourceFile(sourceFile);
         BlobAsyncClient blobClient = blobClient(bucketName, blobKey);
-        BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString());
+        BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
+        Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
+        BlobUploadFromFileOptions uploadOptions = new BlobUploadFromFileOptions(sourceFile.toString())
+                .setHeaders(headers)
+                .setMetadata(metadata);
         return exceptionHandler.handleAsync(
                 blobClient.uploadFromFileWithResponse(uploadOptions)
                         .map(response -> response.getValue().getETag())
