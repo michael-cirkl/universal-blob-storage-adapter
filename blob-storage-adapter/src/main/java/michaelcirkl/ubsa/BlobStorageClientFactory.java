@@ -1,9 +1,25 @@
 package michaelcirkl.ubsa;
 
+/**
+ * Factory for adapting provider SDK clients to the UBSA sync or async interfaces.
+ *
+ * <p>Supported inputs are AWS S3, Azure Blob Storage, and Google Cloud Storage SDK clients. The
+ * concrete SDK client type determines which UBSA adapter implementation is created.
+ */
 public class BlobStorageClientFactory {
     private BlobStorageClientFactory() {
     }
 
+    /**
+     * Wraps a supported provider SDK client in a {@link BlobStorageAsyncClient}.
+     *
+     * <p>Supported client types are AWS {@code S3AsyncClient}, Azure {@code BlobServiceAsyncClient},
+     * and GCP {@code Storage}.
+     *
+     * @param client the native provider SDK client to adapt
+     * @return a UBSA async client backed by the given SDK client
+     * @throws IllegalArgumentException when the client type is not supported
+     */
     public static BlobStorageAsyncClient getAsyncClient(Object client) {
         for (AsyncAdapter adapter : AsyncAdapter.values()) {
             BlobStorageAsyncClient adapted = adaptClient(
@@ -20,6 +36,16 @@ public class BlobStorageClientFactory {
         throw new IllegalArgumentException("Unsupported client type: " + client.getClass().getName() + ". Pass in either S3 S3AsyncClient, Azure BlobServiceAsyncClient or GCP Storage");
     }
 
+    /**
+     * Wraps a supported provider SDK client in a {@link BlobStorageSyncClient}.
+     *
+     * <p>Supported client types are AWS {@code S3Client}, Azure {@code BlobServiceClient}, and GCP
+     * {@code Storage}.
+     *
+     * @param client the native provider SDK client to adapt
+     * @return a UBSA sync client backed by the given SDK client
+     * @throws IllegalArgumentException when the client type is not supported
+     */
     public static BlobStorageSyncClient getSyncClient(Object client) {
         for (SyncAdapter adapter : SyncAdapter.values()) {
             BlobStorageSyncClient adapted = adaptClient(
