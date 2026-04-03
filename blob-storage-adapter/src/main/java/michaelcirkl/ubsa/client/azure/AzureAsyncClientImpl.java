@@ -208,9 +208,18 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public CompletableFuture<ListingPage<Bucket>> listBuckets(PageRequest request) {
         PageRequest pageRequest = normalizePageRequest(request);
-        Mono<PagedResponse<BlobContainerItem>> pageMono = pageRequest.getPageSize() == null
-                ? client.listBlobContainers().byPage(pageRequest.getContinuationToken()).next()
-                : client.listBlobContainers().byPage(pageRequest.getContinuationToken(), pageRequest.getPageSize()).next();
+        String continuationToken = pageRequest.getContinuationToken();
+        Integer pageSize = pageRequest.getPageSize();
+        Mono<PagedResponse<BlobContainerItem>> pageMono;
+        if (continuationToken == null) {
+            pageMono = pageSize == null
+                    ? client.listBlobContainers().byPage().next()
+                    : client.listBlobContainers().byPage(pageSize).next();
+        } else {
+            pageMono = pageSize == null
+                    ? client.listBlobContainers().byPage(continuationToken).next()
+                    : client.listBlobContainers().byPage(continuationToken, pageSize).next();
+        }
         return exceptionHandler.handleAsync(
                 pageMono
                         .map(page -> ListingPage.of(mapBuckets(page.getElements()), page.getContinuationToken()))
@@ -228,9 +237,18 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
         if (prefix != null && !prefix.isBlank()) {
             options.setPrefix(prefix);
         }
-        Mono<PagedResponse<BlobItem>> pageMono = pageRequest.getPageSize() == null
-                ? containerClient.listBlobs(options, null).byPage(pageRequest.getContinuationToken()).next()
-                : containerClient.listBlobs(options, null).byPage(pageRequest.getContinuationToken(), pageRequest.getPageSize()).next();
+        String continuationToken = pageRequest.getContinuationToken();
+        Integer pageSize = pageRequest.getPageSize();
+        Mono<PagedResponse<BlobItem>> pageMono;
+        if (continuationToken == null) {
+            pageMono = pageSize == null
+                    ? containerClient.listBlobs(options, null).byPage().next()
+                    : containerClient.listBlobs(options, null).byPage(pageSize).next();
+        } else {
+            pageMono = pageSize == null
+                    ? containerClient.listBlobs(options, null).byPage(continuationToken).next()
+                    : containerClient.listBlobs(options, null).byPage(continuationToken, pageSize).next();
+        }
 
         return exceptionHandler.handleAsync(
                 pageMono
