@@ -9,8 +9,10 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>library-example-client</module>
         <module>blob-storage-adapter</module>
+        <module>s3-test-client</module>
+        <module>azure-test-client</module>
+        <module>gcp-test-client</module>
     </modules>
 
     <properties>
