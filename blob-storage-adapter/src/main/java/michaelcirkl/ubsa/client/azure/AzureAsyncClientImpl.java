@@ -285,8 +285,8 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
+        validateExpiry(expiry);
         return exceptionHandler.handle(() -> {
-            validateExpiry(expiry);
             var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
             BlobSasPermission permission = new BlobSasPermission()
                     .setReadPermission(true);
@@ -298,8 +298,8 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+        validateExpiry(expiry);
         return exceptionHandler.handle(() -> {
-            validateExpiry(expiry);
             var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);
             BlobSasPermission permission = new BlobSasPermission()
                     .setCreatePermission(true)

@@ -3,6 +3,7 @@ package support;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.blob.BlobServiceVersion;
 import michaelcirkl.ubsa.BlobStorageAsyncClient;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
@@ -29,15 +30,11 @@ public final class AzureSampleClientSupport {
     }
 
     public static BlobServiceClient createNativeSyncClient() {
-        return new BlobServiceClientBuilder()
-                .connectionString(connectionString())
-                .buildClient();
+        return baseBuilder().buildClient();
     }
 
     public static BlobServiceAsyncClient createNativeAsyncClient() {
-        return new BlobServiceClientBuilder()
-                .connectionString(connectionString())
-                .buildAsyncClient();
+        return baseBuilder().buildAsyncClient();
     }
 
     public static BlobStorageSyncClient createUbsaSyncClient() {
@@ -46,6 +43,12 @@ public final class AzureSampleClientSupport {
 
     public static BlobStorageAsyncClient createUbsaAsyncClient() {
         return BlobStorageClientFactory.getAsyncClient(createNativeAsyncClient());
+    }
+
+    private static BlobServiceClientBuilder baseBuilder() {
+        return new BlobServiceClientBuilder()
+                .connectionString(connectionString())
+                .serviceVersion(BlobServiceVersion.V2021_04_10); // because emulator doesnt support new versions
     }
 
     private static String connectionString() {

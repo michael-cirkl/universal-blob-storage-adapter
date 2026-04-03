@@ -22,10 +22,13 @@ import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.channels.Channels;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -164,7 +167,10 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
             BlobClient blobClient = blobClient(bucketName, blobKey);
             BlobHttpHeaders headers = WriteOptionsMappers.toAzureHeaders(options);
             Map<String, String> metadata = WriteOptionsMappers.toAzureMetadata(options);
-            BlobParallelUploadOptions uploadOptions = new BlobParallelUploadOptions(BinaryData.fromStream(content, contentLength))
+            ByteArrayOutputStream bufferedContent = new ByteArrayOutputStream();
+            var channel = Channels.newChannel(bufferedContent);
+            ContentLengthValidators.copyInputStreamToChannel(content, channel, contentLength);
+            BlobParallelUploadOptions uploadOptions = new BlobParallelUploadOptions(BinaryData.fromBytes(bufferedContent.toByteArray()))
                     .setHeaders(headers)
                     .setMetadata(metadata);
             return blobClient.uploadWithResponse(uploadOptions, null, Context.NONE)
@@ -264,8 +270,8 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
+        validateExpiry(expiry);
         return exceptionHandler.handle(() -> {
-            validateExpiry(expiry);
             var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
             BlobSasPermission permission = new BlobSasPermission().setReadPermission(true);
             BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(OffsetDateTime.now().plus(expiry), permission);
@@ -276,8 +282,8 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+        validateExpiry(expiry);
         return exceptionHandler.handle(() -> {
-            validateExpiry(expiry);
             var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);
             BlobSasPermission permission = new BlobSasPermission()
                     .setCreatePermission(true)
