@@ -37,18 +37,10 @@ public final class AzureSampleClientSupport {
         return baseBuilder().buildAsyncClient();
     }
 
-    public static BlobStorageSyncClient createUbsaSyncClient() {
-        return BlobStorageClientFactory.getSyncClient(createNativeSyncClient());
-    }
-
-    public static BlobStorageAsyncClient createUbsaAsyncClient() {
-        return BlobStorageClientFactory.getAsyncClient(createNativeAsyncClient());
-    }
-
     private static BlobServiceClientBuilder baseBuilder() {
         return new BlobServiceClientBuilder()
                 .connectionString(connectionString())
-                .serviceVersion(BlobServiceVersion.V2021_04_10); // because emulator doesnt support new versions
+                .serviceVersion(BlobServiceVersion.V2025_11_05); // because emulator doesnt support new versions
     }
 
     private static String connectionString() {
