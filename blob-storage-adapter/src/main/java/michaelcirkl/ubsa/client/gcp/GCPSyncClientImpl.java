@@ -2,6 +2,7 @@ package michaelcirkl.ubsa.client.gcp;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.ReadChannel;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.*;
 import com.google.cloud.storage.Storage.CopyRequest;
@@ -13,6 +14,7 @@ import michaelcirkl.ubsa.client.pagination.BucketListingSupport;
 import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.ByteArrayRangeValidator;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
@@ -56,7 +58,11 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     public Blob getBlob(String bucketName, String blobKey) {
         return exceptionHandler.handle(() -> {
             com.google.cloud.storage.Blob blob = requireBlob(bucketName, blobKey);
-            return GCPClientSupport.mapFetchedBlob(bucketName, blobKey, blob, blob.getContent());
+            byte[] content = client.readAllBytes(
+                    BlobId.of(bucketName, blobKey),
+                    Storage.BlobSourceOption.shouldReturnRawInputStream(true)
+            );
+            return GCPClientSupport.mapFetchedBlob(bucketName, blobKey, blob, content);
         });
     }
 
@@ -69,7 +75,10 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     public InputStream openBlobStream(String bucketName, String blobKey) {
         return exceptionHandler.handle(() -> {
             requireBlob(bucketName, blobKey);
-            ReadChannel readChannel = client.reader(BlobId.of(bucketName, blobKey));
+            ReadChannel readChannel = client.reader(
+                    BlobId.of(bucketName, blobKey),
+                    Storage.BlobSourceOption.shouldReturnRawInputStream(true)
+            );
             return Channels.newInputStream(readChannel);
         });
     }
@@ -135,6 +144,9 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
             BlobInfo blobInfo = blobBuilder.build();
             try (WriteChannel writeChannel = client.writer(blobInfo)) {
                 ContentLengthValidators.copyInputStreamToChannel(content, writeChannel, contentLength);
+            } catch (Throwable error) {
+                deleteBlobQuietly(bucketName, blobKey);
+                throw error;
             }
             return requireBlob(bucketName, blobKey).getEtag();
         });
@@ -214,11 +226,15 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
-        validateRange(startInclusive, endInclusive);
-        long requestedLength = endInclusive - startInclusive + 1;
+        long requestedLength = ByteArrayRangeValidator.validateAndGetLength(startInclusive, endInclusive);
         return exceptionHandler.handle(() -> {
-            try (ReadChannel readChannel = client.reader(BlobId.of(bucketName, blobKey));
+            requireBlob(bucketName, blobKey);
+            try (ReadChannel readChannel = client.reader(
+                    BlobId.of(bucketName, blobKey),
+                    Storage.BlobSourceOption.shouldReturnRawInputStream(true)
+            );
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                readChannel.setChunkSize((int) Math.min(8192L, requestedLength));
                 readChannel.seek(startInclusive);
 
                 long remaining = requestedLength;
@@ -251,9 +267,10 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
         return exceptionHandler.handle(() -> GCPClientSupport.generatePutUrl(client, bucket, objectKey, expiry, contentType));
     }
 
-    private void validateRange(long startInclusive, long endInclusive) {
-        if (startInclusive < 0 || endInclusive < startInclusive) {
-            throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
+    private void deleteBlobQuietly(String bucketName, String blobKey) {
+        try {
+            client.delete(bucketName, blobKey);
+        } catch (StorageException ignored) {
         }
     }
 

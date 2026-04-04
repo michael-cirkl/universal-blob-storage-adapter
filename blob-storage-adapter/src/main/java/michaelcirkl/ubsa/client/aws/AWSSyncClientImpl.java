@@ -7,6 +7,7 @@ import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
+import michaelcirkl.ubsa.client.streaming.ByteArrayRangeValidator;
 import michaelcirkl.ubsa.client.streaming.ContentLengthValidators;
 import michaelcirkl.ubsa.client.streaming.FileUploadValidators;
 import michaelcirkl.ubsa.client.streaming.WriteOptionsMappers;
@@ -280,7 +281,7 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
-        validateRange(startInclusive, endInclusive);
+        ByteArrayRangeValidator.validateAndGetLength(startInclusive, endInclusive);
         return exceptionHandler.handle(() -> {
             String range = "bytes=" + startInclusive + "-" + endInclusive;
             GetObjectRequest request = GetObjectRequest.builder()
@@ -317,12 +318,6 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
                 client.serviceClientConfiguration(),
                 () -> client.utilities().getUrl(AWSClientSupport.pathStyleProbeRequest())
         );
-    }
-
-    private void validateRange(long startInclusive, long endInclusive) {
-        if (startInclusive < 0 || endInclusive < startInclusive) {
-            throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
-        }
     }
 
     private PageRequest normalizePageRequest(PageRequest request) {

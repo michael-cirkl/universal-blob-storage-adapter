@@ -134,6 +134,7 @@ class SyncClientImplTest {
 
             assertThrows(IllegalArgumentException.class, () -> context.client().getByteRange(bucketName, blobKey, -1, 2));
             assertThrows(IllegalArgumentException.class, () -> context.client().getByteRange(bucketName, blobKey, 8, 7));
+            assertThrows(IllegalArgumentException.class, () -> context.client().getByteRange(bucketName, blobKey, 0, Integer.MAX_VALUE));
         }
     }
 

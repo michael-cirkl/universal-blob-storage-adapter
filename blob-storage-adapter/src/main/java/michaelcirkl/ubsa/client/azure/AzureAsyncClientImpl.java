@@ -297,8 +297,8 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
-        validateRange(startInclusive, endInclusive);
-        BlobRange blobRange = new BlobRange(startInclusive, endInclusive - startInclusive + 1);
+        long length = ByteArrayRangeValidator.validateAndGetLength(startInclusive, endInclusive);
+        BlobRange blobRange = new BlobRange(startInclusive, length);
 
         return exceptionHandler.handleAsync(
                 blobClient(bucketName, blobKey)
@@ -399,12 +399,6 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     private void validateExpiry(Duration expiry) {
         if (expiry == null || expiry.isZero() || expiry.isNegative()) {
             throw new IllegalArgumentException("Expiry must be a positive duration.");
-        }
-    }
-
-    private void validateRange(long startInclusive, long endInclusive) {
-        if (startInclusive < 0 || endInclusive < startInclusive) {
-            throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
     }
 

@@ -5,6 +5,7 @@ import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.api.gax.paging.Page;
+import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.*;
 import com.google.cloud.storage.Storage.CopyRequest;
 import michaelcirkl.ubsa.Blob;
@@ -16,9 +17,11 @@ import michaelcirkl.ubsa.client.pagination.ListingPage;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.*;
 
+import java.io.ByteArrayOutputStream;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.time.Duration;
 import java.util.List;
@@ -60,13 +63,15 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Blob> getBlob(String bucketName, String blobKey) {
-        BlobId blobId = BlobId.of(bucketName, blobKey);
         return exceptionHandler.handleAsync(
-                withBlobReadSession(blobId, session -> {
-                    BlobInfo blobInfo = session.getBlobInfo();
-                    return toCompletableFuture(session.readAs(ReadProjectionConfigs.asFutureBytes()))
-                            .thenApply(content -> GCPClientSupport.mapFetchedBlob(bucketName, blobKey, blobInfo, content));
-                })
+                CompletableFuture.supplyAsync(() -> {
+                    com.google.cloud.storage.Blob blob = requireBlob(bucketName, blobKey);
+                    byte[] content = client.readAllBytes(
+                            BlobId.of(bucketName, blobKey),
+                            Storage.BlobSourceOption.shouldReturnRawInputStream(true)
+                    );
+                    return GCPClientSupport.mapFetchedBlob(bucketName, blobKey, blob, content);
+                }, IO_EXECUTOR)
         );
     }
 
@@ -226,15 +231,41 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
-        validateRange(startInclusive, endInclusive);
-        long length = endInclusive - startInclusive + 1;
-        BlobId blobId = BlobId.of(bucketName, blobKey);
         return exceptionHandler.handleAsync(
-                withBlobReadSession(blobId, session -> {
-                    ReadAsFutureBytes readConfig = ReadProjectionConfigs.asFutureBytes()
-                            .withRangeSpec(RangeSpec.beginAt(startInclusive).withMaxLength(length));
-                    return toCompletableFuture(session.readAs(readConfig));
-                })
+                CompletableFuture.supplyAsync(() -> {
+                    long requestedLength = ByteArrayRangeValidator.validateAndGetLength(startInclusive, endInclusive);
+                    requireBlob(bucketName, blobKey);
+                    try (ReadChannel readChannel = client.reader(
+                            BlobId.of(bucketName, blobKey),
+                            Storage.BlobSourceOption.shouldReturnRawInputStream(true)
+                    );
+                         ByteArrayOutputStream output = new ByteArrayOutputStream();
+                         WritableByteChannel outputChannel = Channels.newChannel(output)) {
+                        readChannel.setChunkSize((int) Math.min(8192L, requestedLength));
+                        readChannel.seek(startInclusive);
+
+                        long remaining = requestedLength;
+                        ByteBuffer buffer = ByteBuffer.allocate((int) Math.min(8192L, requestedLength));
+                        while (remaining > 0) {
+                            buffer.clear();
+                            if (buffer.capacity() > remaining) {
+                                buffer.limit((int) remaining);
+                            }
+                            int read = readChannel.read(buffer);
+                            if (read <= 0) {
+                                break;
+                            }
+                            buffer.flip();
+                            while (buffer.hasRemaining()) {
+                                outputChannel.write(buffer);
+                            }
+                            remaining -= read;
+                        }
+                        return output.toByteArray();
+                    } catch (Exception error) {
+                        throw new CompletionException(error);
+                    }
+                }, IO_EXECUTOR)
         );
     }
 
@@ -272,6 +303,9 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
             BlobWriteSession writeSession = client.blobWriteSession(blobInfo);
             try (WritableByteChannel channel = writeSession.open()) {
                 GCPFlowPublisherChannelWriter.writeFromPublisher(content, channel, contentLength);
+            } catch (Throwable error) {
+                deleteBlobQuietly(blobInfo.getBucket(), blobInfo.getName());
+                throw error;
             }
             return writeSession.getResult();
         });
@@ -328,9 +362,18 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
         return blobBuilder.build();
     }
 
-    private void validateRange(long startInclusive, long endInclusive) {
-        if (startInclusive < 0 || endInclusive < startInclusive) {
-            throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
+    private com.google.cloud.storage.Blob requireBlob(String bucketName, String blobKey) {
+        com.google.cloud.storage.Blob blob = client.get(bucketName, blobKey);
+        if (blob == null) {
+            throw new StorageException(404, "Blob not found: gs://" + bucketName + "/" + blobKey);
+        }
+        return blob;
+    }
+
+    private void deleteBlobQuietly(String bucketName, String blobKey) {
+        try {
+            client.delete(bucketName, blobKey);
+        } catch (StorageException ignored) {
         }
     }
 

@@ -274,7 +274,7 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
-        validateRange(startInclusive, endInclusive);
+        ByteArrayRangeValidator.validateAndGetLength(startInclusive, endInclusive);
         String range = "bytes=" + startInclusive + "-" + endInclusive;
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(bucketName)
@@ -320,12 +320,6 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         long maxSinglePutBytes = 5L * 1024L * 1024L * 1024L;
         if (contentLength > maxSinglePutBytes) {
             throw new IllegalArgumentException("AWS single PUT upload supports up to 5 GiB. Received: " + contentLength + " bytes.");
-        }
-    }
-
-    private void validateRange(long startInclusive, long endInclusive) {
-        if (startInclusive < 0 || endInclusive < startInclusive) {
-            throw new IllegalArgumentException("Invalid range. startInclusive must be >= 0 and endInclusive must be >= startInclusive.");
         }
     }
 
