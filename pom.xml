@@ -10,9 +10,8 @@
     <packaging>pom</packaging>
     <modules>
         <module>blob-storage-adapter</module>
-        <module>s3-test-client</module>
         <module>azure-test-client</module>
-        <module>gcp-test-client</module>
+        <module>testing</module>
     </modules>
 
     <properties>
