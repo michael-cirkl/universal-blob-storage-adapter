@@ -140,4 +140,10 @@ public final class GCPClientSupport {
     private static LocalDateTime toLocalDateTime(OffsetDateTime time) {
         return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
+
+    public static void validateExpiry(Duration expiry) {
+        if (expiry == null || expiry.isZero() || expiry.isNegative()) {
+            throw new IllegalArgumentException("Expiry must be a positive duration.");
+        }
+    }
 }

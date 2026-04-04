@@ -240,11 +240,13 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
+        GCPClientSupport.validateExpiry(expiry);
         return exceptionHandler.handle(() -> GCPClientSupport.generateGetUrl(client, bucket, objectKey, expiry));
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+        GCPClientSupport.validateExpiry(expiry);
         return exceptionHandler.handle(() -> GCPClientSupport.generatePutUrl(client, bucket, objectKey, expiry, contentType));
     }
 
