@@ -32,6 +32,11 @@ public final class GCPFlowPublisherChannelWriter {
                     return;
                 }
                 this.subscription = subscription;
+                if (contentLength == 0L) {
+                    subscription.cancel();
+                    done.countDown();
+                    return;
+                }
                 subscription.request(1);
             }
 
@@ -40,8 +45,20 @@ public final class GCPFlowPublisherChannelWriter {
                 try {
                     ByteBuffer source = item == null ? ByteBuffer.allocate(0) : item;
                     ByteBuffer buffer = source.slice();
-                    while (buffer.hasRemaining()) {
+                    long remaining = contentLength - bytesWritten.get();
+                    while (buffer.hasRemaining() && remaining > 0) {
+                        int originalLimit = buffer.limit();
+                        if (buffer.remaining() > remaining) {
+                            buffer.limit(buffer.position() + (int) remaining);
+                        }
                         bytesWritten.addAndGet(channel.write(buffer));
+                        buffer.limit(originalLimit);
+                        remaining = contentLength - bytesWritten.get();
+                    }
+                    if (bytesWritten.get() >= contentLength) {
+                        subscription.cancel();
+                        done.countDown();
+                        return;
                     }
                     subscription.request(1);
                 } catch (Throwable error) {
@@ -74,6 +91,8 @@ public final class GCPFlowPublisherChannelWriter {
         if (streamError != null) {
             throw new CompletionException("Failed while consuming stream content for GCS upload.", streamError);
         }
-        ContentLengthValidators.ensureExactByteCount(contentLength, bytesWritten.get());
+        if (bytesWritten.get() < contentLength) {
+            throw ContentLengthValidators.lengthMismatch(contentLength, bytesWritten.get());
+        }
     }
 }

@@ -14,7 +14,7 @@ public final class AWSExceptionHandler {
     public <T> T handle(Supplier<T> action) {
         try {
             return action.get();
-        } catch (S3Exception error) { // here can catch all specific S3 exception types and handle them
+        } catch (Throwable error) { // here can catch all specific S3 exception types and handle them
             throw propagate(error);
         }
     }
@@ -87,5 +87,10 @@ public final class AWSExceptionHandler {
             return true;
         }
         return error.statusCode() == 404;
+    }
+
+    public boolean isBucketAlreadyExists(S3Exception error) {
+        String errorCode = error.awsErrorDetails() == null ? null : error.awsErrorDetails().errorCode();
+        return "BucketAlreadyExists".equals(errorCode) || "BucketAlreadyOwnedByYou".equals(errorCode);
     }
 }

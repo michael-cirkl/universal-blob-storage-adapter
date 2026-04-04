@@ -199,7 +199,15 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     @Override
     public CompletableFuture<Void> createBucket(Bucket bucket) {
         return exceptionHandler.handleAsync(
-                CompletableFuture.runAsync(() -> client.create(BucketInfo.of(bucket.getName())), IO_EXECUTOR)
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        client.create(BucketInfo.of(bucket.getName()));
+                    } catch (StorageException error) {
+                        if (!exceptionHandler.isBucketAlreadyExists(error)) {
+                            throw error;
+                        }
+                    }
+                }, IO_EXECUTOR)
         );
     }
 

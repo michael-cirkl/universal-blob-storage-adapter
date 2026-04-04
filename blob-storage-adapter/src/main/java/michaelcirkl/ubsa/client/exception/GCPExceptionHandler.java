@@ -61,6 +61,10 @@ public class GCPExceptionHandler {
         return error.getCode() == 404;
     }
 
+    public boolean isBucketAlreadyExists(StorageException error) {
+        return error.getCode() == 409;
+    }
+
     public interface IOSupplier<T> { // basically just Supplier<T> (function with no args), but can throw IOException.
         T get() throws IOException;
     }

@@ -10,7 +10,6 @@
     <packaging>pom</packaging>
     <modules>
         <module>blob-storage-adapter</module>
-        <module>azure-test-client</module>
         <module>testing</module>
     </modules>
 

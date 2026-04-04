@@ -14,6 +14,7 @@ import support.SyncProviderFixture;
 import support.SyncTestContext;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -23,9 +24,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -42,7 +45,7 @@ class SyncClientScenariosTest {
             String bucketName = context.createBucket("scenario-docs");
             String prefix = "project-alpha/";
 
-            byte[] readmeContent = "# Alpha\nScenario sample".getBytes(StandardCharsets.UTF_8);
+            byte[] readmeContent = gzip("# Alpha\nScenario sample".getBytes(StandardCharsets.UTF_8));
             context.client().createBlob(bucketName, Blob.builder()
                     .bucket(bucketName)
                     .key(prefix + "README.md")
@@ -110,7 +113,7 @@ class SyncClientScenariosTest {
                 assertArrayEquals(notesContent, notesStream.readAllBytes());
             }
 
-            assertArrayEquals("Alpha".getBytes(StandardCharsets.UTF_8), context.client().getByteRange(bucketName, prefix + "README.md", 2, 6));
+            assertArrayEquals(Arrays.copyOfRange(readmeContent, 2, 7), context.client().getByteRange(bucketName, prefix + "README.md", 2, 6));
         }
     }
 
@@ -171,7 +174,7 @@ class SyncClientScenariosTest {
             String archiveBucket = context.createBucket("scenario-copy-archive");
             String sourceBlobKey = "orders/2026-04/report.json";
             String copiedBlobKey = "archive/orders/2026-04/report.json";
-            byte[] payload = "{\"order\":42,\"status\":\"done\"}".getBytes(StandardCharsets.UTF_8);
+            byte[] payload = gzip("{\"order\":42,\"status\":\"done\"}".getBytes(StandardCharsets.UTF_8));
             Map<String, String> metadata = Map.of("source", "orders", "stage", "archive");
 
             context.client().createBlob(sourceBucket, Blob.builder()
@@ -205,7 +208,7 @@ class SyncClientScenariosTest {
             String blobKey = "workspace/config/settings.json";
             String prefix = "workspace/config/";
 
-            byte[] initialContent = "{\"mode\":\"draft\",\"version\":1}".getBytes(StandardCharsets.UTF_8);
+            byte[] initialContent = gzip("{\"mode\":\"draft\",\"version\":1}".getBytes(StandardCharsets.UTF_8));
             context.client().createBlob(
                     bucketName,
                     Blob.builder()
@@ -253,6 +256,18 @@ class SyncClientScenariosTest {
             Blob listedMetadata = context.client().getBlobMetadata(bucketName, listedBlob.getKey());
             assertEquals("br", listedMetadata.encoding());
             assertEquals(Map.of("revision", "v2", "owner", "team-b"), listedMetadata.getUserMetadata());
+        }
+    }
+
+    private static byte[] gzip(byte[] input) {
+        try {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzip = new GZIPOutputStream(output)) {
+                gzip.write(input);
+            }
+            return output.toByteArray();
+        } catch (IOException error) {
+            throw new IllegalStateException("Failed to build gzip test payload.", error);
         }
     }
 }

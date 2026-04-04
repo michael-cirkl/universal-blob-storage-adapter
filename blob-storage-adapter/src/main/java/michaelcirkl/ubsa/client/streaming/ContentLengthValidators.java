@@ -61,10 +61,6 @@ public final class ContentLengthValidators {
             remaining -= read;
         }
 
-        if (content.read() != -1) {
-            throw lengthExceeded(expectedLength);
-        }
-
         return written;
     }
 }

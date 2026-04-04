@@ -268,11 +268,21 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<Void> createBucket(Bucket bucket) {
-        return exceptionHandler.handleAsync(
-                client.createBlobContainer(bucket.getName())
-                        .then()
-                        .toFuture()
-        );
+        return client.createBlobContainer(bucket.getName())
+                .then()
+                .toFuture()
+                .handle((result, error) -> {
+                    if (error == null) {
+                        return null;
+                    }
+
+                    Throwable cause = exceptionHandler.unwrap(error);
+                    if (cause instanceof BlobStorageException blobStorageException
+                            && exceptionHandler.isBucketAlreadyExists(blobStorageException)) {
+                        return null;
+                    }
+                    throw exceptionHandler.propagate(cause);
+                });
     }
 
     @Override

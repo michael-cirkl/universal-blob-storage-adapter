@@ -236,7 +236,18 @@ public class AWSAsyncClientImpl implements BlobStorageAsyncClient {
         CreateBucketRequest request = CreateBucketRequest.builder()
                 .bucket(bucket.getName())
                 .build();
-        return exceptionHandler.handleAsync(client.createBucket(request).thenApply(response -> null));
+        return client.createBucket(request)
+                .handle((response, error) -> {
+                    if (error == null) {
+                        return null;
+                    }
+
+                    Throwable cause = exceptionHandler.unwrap(error);
+                    if (cause instanceof S3Exception s3Exception && exceptionHandler.isBucketAlreadyExists(s3Exception)) {
+                        return null;
+                    }
+                    throw exceptionHandler.propagate(cause);
+                });
     }
 
     @Override

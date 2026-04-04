@@ -27,6 +27,10 @@ import java.net.http.HttpResponse;
 
 public final class SyncProviderFixture implements AutoCloseable {
     private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
+    // Creds for emulator
+    private static final String AZURE_DEVSTORE_ACCOUNT = "devstoreaccount1";
+    private static final String AZURE_DEVSTORE_KEY =
+            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
 
     private final Provider provider;
     private final FixtureInitializer initializer;
@@ -128,29 +132,44 @@ public final class SyncProviderFixture implements AutoCloseable {
 
     private static SyncProviderFixture createAwsFixture() {
         return new SyncProviderFixture(Provider.AWS, () -> {
-        TestEnvironment env = TestEnvironment.load();
-        S3Client nativeClient = S3Client.builder()
-                .region(Region.of(env.required("AWS_REGION")))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
-                        env.required("AWS_ACCESS_KEY_ID"),
-                        env.required("AWS_SECRET_ACCESS_KEY")
-                )))
-                .endpointOverride(URI.create(env.required("AWS_S3_ENDPOINT")))
-                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
-                .build();
-        return new InitializedFixture(nativeClient, BlobStorageClientFactory.getSyncClient(nativeClient));
+            TestEnvironment env = TestEnvironment.load();
+            String region = requiredOrSkip(
+                    env,
+                    "AWS_REGION",
+                    "Skipping AWS tests: configure AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY for a real S3 account."
+            );
+            String accessKeyId = requiredOrSkip(
+                    env,
+                    "AWS_ACCESS_KEY_ID",
+                    "Skipping AWS tests: configure AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY for a real S3 account."
+            );
+            String secretAccessKey = requiredOrSkip(
+                    env,
+                    "AWS_SECRET_ACCESS_KEY",
+                    "Skipping AWS tests: configure AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY."
+            );
+            String endpoint = optional(env, "AWS_S3_ENDPOINT");
+
+            var builder = S3Client.builder()
+                    .region(Region.of(region))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
+                            accessKeyId,
+                            secretAccessKey
+                    )));
+            if (endpoint != null) {
+                builder.endpointOverride(URI.create(endpoint));
+                builder.serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build());
+            }
+
+            S3Client nativeClient = builder.build();
+            return new InitializedFixture(nativeClient, BlobStorageClientFactory.getSyncClient(nativeClient));
         });
     }
 
     private static SyncProviderFixture createAzureFixture() {
         return new SyncProviderFixture(Provider.Azure, () -> {
             TestEnvironment env = TestEnvironment.load();
-            String accountName = env.required("AZURE_STORAGE_ACCOUNT_NAME");
-            String accountKey = env.required("AZURE_STORAGE_ACCOUNT_KEY");
-            String connectionString = "DefaultEndpointsProtocol=http;"
-                    + "AccountName=" + accountName + ";"
-                    + "AccountKey=" + accountKey + ";"
-                    + "BlobEndpoint=http://127.0.0.1:10000/" + accountName + ";";
+            String connectionString = azureConnectionString(env);
             BlobServiceClient nativeClient = new BlobServiceClientBuilder()
                     .connectionString(connectionString)
                     .serviceVersion(BlobServiceVersion.V2025_11_05)
@@ -191,6 +210,50 @@ public final class SyncProviderFixture implements AutoCloseable {
                     .getService();
             return new InitializedFixture(() -> { }, BlobStorageClientFactory.getSyncClient(nativeClient));
         });
+    }
+
+    private static String azureConnectionString(TestEnvironment env) {
+        String connectionString = optional(env, "AZURE_STORAGE_CONNECTION_STRING");
+        if (connectionString != null) {
+            return connectionString;
+        }
+
+        String accountName = requiredOrSkip(
+                env,
+                "AZURE_STORAGE_ACCOUNT_NAME",
+                "Skipping Azure tests: configure AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT_NAME and AZURE_STORAGE_ACCOUNT_KEY for a real storage account."
+        );
+        String accountKey = requiredOrSkip(
+                env,
+                "AZURE_STORAGE_ACCOUNT_KEY",
+                "Skipping Azure tests: configure AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT_NAME and AZURE_STORAGE_ACCOUNT_KEY."
+        );
+        if (AZURE_DEVSTORE_ACCOUNT.equals(accountName) || AZURE_DEVSTORE_KEY.equals(accountKey)) {
+            return "DefaultEndpointsProtocol=http;"
+                    + "AccountName=" + accountName + ";"
+                    + "AccountKey=" + accountKey + ";"
+                    + "BlobEndpoint=http://127.0.0.1:10000/" + accountName + ";";
+        }
+        return "DefaultEndpointsProtocol=https;"
+                + "AccountName=" + accountName + ";"
+                + "AccountKey=" + accountKey + ";"
+                + "EndpointSuffix=core.windows.net";
+    }
+
+    private static String requiredOrSkip(TestEnvironment env, String key, String message) {
+        try {
+            return env.required(key);
+        } catch (IllegalStateException error) {
+            throw new TestAbortedException(message, error);
+        }
+    }
+
+    private static String optional(TestEnvironment env, String key) {
+        try {
+            return env.required(key);
+        } catch (IllegalStateException ignored) {
+            return null;
+        }
     }
 
     private synchronized InitializedFixture fixture() {

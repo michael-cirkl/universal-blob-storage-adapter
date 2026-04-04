@@ -243,7 +243,13 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     @Override
     public Void createBucket(Bucket bucket) {
         return exceptionHandler.handle(() -> {
-            client.createBlobContainer(bucket.getName());
+            try {
+                client.createBlobContainer(bucket.getName());
+            } catch (BlobStorageException error) {
+                if (!exceptionHandler.isBucketAlreadyExists(error)) {
+                    throw error;
+                }
+            }
             return null;
         });
     }

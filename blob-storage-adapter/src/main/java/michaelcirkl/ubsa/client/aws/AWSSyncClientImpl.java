@@ -248,7 +248,13 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
             CreateBucketRequest request = CreateBucketRequest.builder()
                     .bucket(bucket.getName())
                     .build();
-            client.createBucket(request);
+            try {
+                client.createBucket(request);
+            } catch (S3Exception error) {
+                if (!exceptionHandler.isBucketAlreadyExists(error)) {
+                    throw error;
+                }
+            }
             return null;
         });
     }
@@ -288,18 +294,14 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
 
     @Override
     public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
-        return exceptionHandler.handle(() -> {
-            AWSClientSupport.validateExpiry(expiry);
-            return AWSClientSupport.presignGetUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig);
-        });
+        AWSClientSupport.validateExpiry(expiry);
+        return exceptionHandler.handle(() -> AWSClientSupport.presignGetUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig));
     }
 
     @Override
     public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
-        return exceptionHandler.handle(() -> {
-            AWSClientSupport.validateExpiry(expiry);
-            return AWSClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig);
-        });
+        AWSClientSupport.validateExpiry(expiry);
+        return exceptionHandler.handle(() -> AWSClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig));
     }
 
     private void validateAwsSinglePutLength(long contentLength) {

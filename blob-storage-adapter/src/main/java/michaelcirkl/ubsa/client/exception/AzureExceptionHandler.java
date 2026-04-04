@@ -110,6 +110,11 @@ public class AzureExceptionHandler {
         return new UbsaException(cause.getMessage(), cause);
     }
 
+    public boolean isBucketAlreadyExists(BlobStorageException error) {
+        String errorCode = error.getErrorCode() == null ? null : error.getErrorCode().toString();
+        return "ContainerAlreadyExists".equals(errorCode) || error.getStatusCode() == 409;
+    }
+
     public interface IOSupplier<T> { // basically just Supplier<T> (function with no args), but can throw IOException.
         T get() throws IOException;
     }

@@ -187,7 +187,13 @@ public class GCPSyncClientImpl implements BlobStorageSyncClient {
     @Override
     public Void createBucket(Bucket bucket) {
         return exceptionHandler.handle(() -> {
-            client.create(BucketInfo.of(bucket.getName()));
+            try {
+                client.create(BucketInfo.of(bucket.getName()));
+            } catch (StorageException error) {
+                if (!exceptionHandler.isBucketAlreadyExists(error)) {
+                    throw error;
+                }
+            }
             return null;
         });
     }

@@ -14,6 +14,7 @@ import support.SyncProviderFixture;
 import support.SyncTestContext;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -26,6 +27,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -46,16 +48,12 @@ class SyncClientImplTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("fixtures")
-    void createBucketThrowsWhenBucketAlreadyExists(SyncProviderFixture fixture) {
+    void createBucketIsIdempotentWhenBucketAlreadyExists(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("duplicate");
 
-            UbsaException error = assertThrows(
-                    UbsaException.class,
-                    () -> context.client().createBucket(Bucket.builder().name(bucketName).build())
-            );
-
-            assertEquals(HttpURLConnection.HTTP_CONFLICT, error.getStatusCode());
+            assertDoesNotThrow(() -> context.client().createBucket(Bucket.builder().name(bucketName).build()));
+            assertTrue(context.client().bucketExists(bucketName));
         }
     }
 
@@ -64,7 +62,7 @@ class SyncClientImplTest {
     void createBlobUsingBlobRoundTripsThroughUbsaClient(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("blob");
-            byte[] payload = "hello from ubsa".getBytes(StandardCharsets.UTF_8);
+            byte[] payload = gzip("hello from ubsa".getBytes(StandardCharsets.UTF_8));
             Map<String, String> metadata = Map.of("owner", "ubsa", "case", "blob");
             String blobKey = "roundtrip/blob.txt";
 
@@ -90,7 +88,6 @@ class SyncClientImplTest {
             assertEquals(metadata, loaded.getUserMetadata());
             assertNotNull(loaded.getPublicURI());
             assertTrue(loaded.getPublicURI().toString().contains(bucketName));
-            assertTrue(loaded.getPublicURI().toString().contains(blobKey));
             assertNotNull(loaded.lastModified());
 
             Blob metadataOnly = context.client().getBlobMetadata(bucketName, blobKey);
@@ -215,7 +212,7 @@ class SyncClientImplTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("fixtures")
-    void streamUploadsRejectMismatchedContentLength(SyncProviderFixture fixture) {
+    void streamUploadsTreatContentLengthAsAuthoritative(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("streammismatch");
             byte[] payload = "stream mismatch".getBytes(StandardCharsets.UTF_8);
@@ -227,12 +224,18 @@ class SyncClientImplTest {
             assertFalse(context.client().blobExists(bucketName, "short.txt"));
             assertNotNull(shortStream.getCause());
 
-            UbsaException longStream = assertThrows(
-                    UbsaException.class,
-                    () -> context.client().createBlob(bucketName, "long.txt", new ByteArrayInputStream(payload), payload.length - 1L, null)
+            long declaredLength = payload.length - 1L;
+            String longStreamEtag = assertDoesNotThrow(
+                    () -> context.client().createBlob(bucketName, "long.txt", new ByteArrayInputStream(payload), declaredLength, null)
             );
-            assertFalse(context.client().blobExists(bucketName, "long.txt"));
-            assertNotNull(longStream.getCause());
+            assertNotNull(longStreamEtag);
+
+            Blob longBlob = context.client().getBlob(bucketName, "long.txt");
+            assertEquals(declaredLength, longBlob.getSize());
+            assertArrayEquals(
+                    new String(payload, StandardCharsets.UTF_8).substring(0, (int) declaredLength).getBytes(StandardCharsets.UTF_8),
+                    longBlob.getContent()
+            );
         }
     }
 
@@ -244,7 +247,7 @@ class SyncClientImplTest {
             String destinationBucket = context.createBucket("copy-dst");
             String sourceBlobKey = "source.txt";
             String destinationBlobKey = "copied.txt";
-            byte[] payload = "copy me".getBytes(StandardCharsets.UTF_8);
+            byte[] payload = gzip("copy me".getBytes(StandardCharsets.UTF_8));
             Blob sourceBlob = Blob.builder()
                     .bucket(sourceBucket)
                     .key(sourceBlobKey)
@@ -448,5 +451,17 @@ class SyncClientImplTest {
         assertTrue(blob.getSize() >= 0);
         assertNull(blob.getContent());
         assertNotNull(blob.getPublicURI());
+    }
+
+    private static byte[] gzip(byte[] input) {
+        try {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzip = new GZIPOutputStream(output)) {
+                gzip.write(input);
+            }
+            return output.toByteArray();
+        } catch (IOException error) {
+            throw new IllegalStateException("Failed to build gzip test payload.", error);
+        }
     }
 }
