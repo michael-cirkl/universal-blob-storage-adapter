@@ -29,17 +29,3 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
-  gcp-storage-emulator:
-    image: oittaa/gcp-storage-emulator
-    container_name: gcp-storage-emulator
-    ports:
-      - "9023:9023"
-    environment:
-      - PORT=9023
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9023/storage/v1/b"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s

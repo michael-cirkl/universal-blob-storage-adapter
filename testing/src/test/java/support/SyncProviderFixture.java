@@ -3,12 +3,14 @@ package support;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.BlobServiceVersion;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import michaelcirkl.ubsa.BlobStorageClientFactory;
 import michaelcirkl.ubsa.BlobStorageSyncClient;
 import michaelcirkl.ubsa.Provider;
 import michaelcirkl.ubsa.client.exception.UbsaException;
+import org.opentest4j.TestAbortedException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -27,13 +29,13 @@ public final class SyncProviderFixture implements AutoCloseable {
     private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
 
     private final Provider provider;
-    private final AutoCloseable nativeClient;
-    private final BlobStorageSyncClient client;
+    private final FixtureInitializer initializer;
+    private InitializedFixture initializedFixture;
+    private RuntimeException initializationError;
 
-    private SyncProviderFixture(Provider provider, AutoCloseable nativeClient, BlobStorageSyncClient client) {
+    private SyncProviderFixture(Provider provider, FixtureInitializer initializer) {
         this.provider = provider;
-        this.nativeClient = nativeClient;
-        this.client = client;
+        this.initializer = initializer;
     }
 
     public static SyncProviderFixture create(Provider provider) {
@@ -49,7 +51,7 @@ public final class SyncProviderFixture implements AutoCloseable {
     }
 
     public BlobStorageSyncClient client() {
-        return client;
+        return fixture().client;
     }
 
     public SyncTestContext openContext() {
@@ -95,6 +97,7 @@ public final class SyncProviderFixture implements AutoCloseable {
 
     void cleanupBucket(String bucketName) {
         try {
+            BlobStorageSyncClient client = fixture().client;
             for (var blob : client.iterateBlobs(bucketName, null, 100)) {
                 client.deleteBlobIfExists(bucketName, blob.getKey());
             }
@@ -108,8 +111,11 @@ public final class SyncProviderFixture implements AutoCloseable {
 
     @Override
     public void close() {
+        if (initializedFixture == null) {
+            return;
+        }
         try {
-            nativeClient.close();
+            initializedFixture.nativeClient.close();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to close " + provider + " test client.", e);
         }
@@ -121,6 +127,7 @@ public final class SyncProviderFixture implements AutoCloseable {
     }
 
     private static SyncProviderFixture createAwsFixture() {
+        return new SyncProviderFixture(Provider.AWS, () -> {
         TestEnvironment env = TestEnvironment.load();
         S3Client nativeClient = S3Client.builder()
                 .region(Region.of(env.required("AWS_REGION")))
@@ -131,33 +138,89 @@ public final class SyncProviderFixture implements AutoCloseable {
                 .endpointOverride(URI.create(env.required("AWS_S3_ENDPOINT")))
                 .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
                 .build();
-        return new SyncProviderFixture(Provider.AWS, nativeClient, BlobStorageClientFactory.getSyncClient(nativeClient));
+        return new InitializedFixture(nativeClient, BlobStorageClientFactory.getSyncClient(nativeClient));
+        });
     }
 
     private static SyncProviderFixture createAzureFixture() {
-        TestEnvironment env = TestEnvironment.load();
-        String accountName = env.required("AZURE_STORAGE_ACCOUNT_NAME");
-        String accountKey = env.required("AZURE_STORAGE_ACCOUNT_KEY");
-        String connectionString = "DefaultEndpointsProtocol=http;"
-                + "AccountName=" + accountName + ";"
-                + "AccountKey=" + accountKey + ";"
-                + "BlobEndpoint=http://127.0.0.1:10000/" + accountName + ";";
-        BlobServiceClient nativeClient = new BlobServiceClientBuilder()
-                .connectionString(connectionString)
-                .serviceVersion(BlobServiceVersion.V2025_11_05)
-                .buildClient();
-        return new SyncProviderFixture(Provider.Azure, () -> { }, BlobStorageClientFactory.getSyncClient(nativeClient));
+        return new SyncProviderFixture(Provider.Azure, () -> {
+            TestEnvironment env = TestEnvironment.load();
+            String accountName = env.required("AZURE_STORAGE_ACCOUNT_NAME");
+            String accountKey = env.required("AZURE_STORAGE_ACCOUNT_KEY");
+            String connectionString = "DefaultEndpointsProtocol=http;"
+                    + "AccountName=" + accountName + ";"
+                    + "AccountKey=" + accountKey + ";"
+                    + "BlobEndpoint=http://127.0.0.1:10000/" + accountName + ";";
+            BlobServiceClient nativeClient = new BlobServiceClientBuilder()
+                    .connectionString(connectionString)
+                    .serviceVersion(BlobServiceVersion.V2025_11_05)
+                    .buildClient();
+            return new InitializedFixture(() -> { }, BlobStorageClientFactory.getSyncClient(nativeClient));
+        });
     }
 
     private static SyncProviderFixture createGcpFixture() {
-        TestEnvironment env = TestEnvironment.load();
-        String projectId = env.required("GCP_PROJECT_ID");
-        Storage nativeClient = StorageOptions.newBuilder()
-                .setProjectId(projectId)
-                .setHost(env.required("STORAGE_EMULATOR_HOST"))
-                .setCredentials(LocalSigningCredentials.create(projectId))
-                .build()
-                .getService();
-        return new SyncProviderFixture(Provider.GCP, () -> { }, BlobStorageClientFactory.getSyncClient(nativeClient));
+        return new SyncProviderFixture(Provider.GCP, () -> {
+            TestEnvironment env = TestEnvironment.load();
+            String projectId;
+            try {
+                projectId = env.required("GCP_PROJECT_ID");
+            } catch (IllegalStateException error) {
+                throw new TestAbortedException(
+                        "Skipping GCP tests: no GCP backend configured. Set GCP_PROJECT_ID and configure Application Default Credentials "
+                                + "(for example GOOGLE_APPLICATION_CREDENTIALS or `gcloud auth application-default login`).",
+                        error
+                );
+            }
+
+            GoogleCredentials credentials;
+            try {
+                credentials = GoogleCredentials.getApplicationDefault();
+            } catch (IOException error) {
+                throw new TestAbortedException(
+                        "Skipping GCP tests: Application Default Credentials are not configured. Set GOOGLE_APPLICATION_CREDENTIALS "
+                                + "or run `gcloud auth application-default login`.",
+                        error
+                );
+            }
+
+            Storage nativeClient = StorageOptions.newBuilder()
+                    .setProjectId(projectId)
+                    .setCredentials(credentials)
+                    .build()
+                    .getService();
+            return new InitializedFixture(() -> { }, BlobStorageClientFactory.getSyncClient(nativeClient));
+        });
+    }
+
+    private synchronized InitializedFixture fixture() {
+        if (initializedFixture != null) {
+            return initializedFixture;
+        }
+        if (initializationError != null) {
+            throw initializationError;
+        }
+        try {
+            initializedFixture = initializer.initialize();
+            return initializedFixture;
+        } catch (RuntimeException error) {
+            initializationError = error;
+            throw error;
+        }
+    }
+
+    @FunctionalInterface
+    private interface FixtureInitializer {
+        InitializedFixture initialize();
+    }
+
+    private static final class InitializedFixture {
+        private final AutoCloseable nativeClient;
+        private final BlobStorageSyncClient client;
+
+        private InitializedFixture(AutoCloseable nativeClient, BlobStorageSyncClient client) {
+            this.nativeClient = nativeClient;
+            this.client = client;
+        }
     }
 }

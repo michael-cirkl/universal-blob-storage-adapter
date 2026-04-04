@@ -9,9 +9,8 @@ import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import support.SyncProviderFixture;
-import support.SyncProviderFixtureArgumentsProvider;
 import support.SyncTestContext;
 
 import java.io.ByteArrayInputStream;
@@ -26,12 +25,18 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SyncClientImplTest {
+    private static Stream<SyncProviderFixture> fixtures() {
+        return Stream.of(Provider.AWS, Provider.Azure, Provider.GCP)
+                .map(SyncProviderFixture::create);
+    }
+
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void getProviderExposesUbsaProvider(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             assertEquals(context.provider(), context.client().getProvider());
@@ -40,7 +45,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void createBucketThrowsWhenBucketAlreadyExists(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("duplicate");
@@ -55,7 +60,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void createBlobUsingBlobRoundTripsThroughUbsaClient(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("blob");
@@ -101,7 +106,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void createBlobWithNullContentCreatesEmptyBlob(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("empty");
@@ -116,7 +121,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void openBlobStreamAndByteRangeReturnExpectedContentAndValidateRanges(SyncProviderFixture fixture) throws IOException {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("stream");
@@ -136,7 +141,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void fileUploadsSupportPlainAndConfiguredWrites(SyncProviderFixture fixture, @TempDir Path tempDir) throws IOException {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("file");
@@ -173,7 +178,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void streamUploadsSupportMetadataAndValidateArguments(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("streamupload");
@@ -209,7 +214,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void streamUploadsRejectMismatchedContentLength(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("streammismatch");
@@ -232,7 +237,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void deleteBlobIfExistsAndCopyBlobMatchUbsaState(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String sourceBucket = context.createBucket("copy-src");
@@ -264,7 +269,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void listBlobsAndIterateBlobsMatchUbsaListingWithPagination(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("listblobs");
@@ -304,7 +309,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void listBucketsListAllBucketsAndIterateBucketsExposeCreatedBuckets(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String prefix = context.newBucketName("listbucket").substring(0, 12);
@@ -348,7 +353,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void signedUrlsAllowDownloadingAndUploading(SyncProviderFixture fixture) throws Exception {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("signed");
@@ -372,7 +377,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void signedUrlsAgainstMissingBucketReturnNotFound(SyncProviderFixture fixture) throws Exception {
         try (SyncTestContext context = fixture.openContext()) {
             String missingBucket = context.newBucketName("missing-signed");
@@ -389,7 +394,7 @@ class SyncClientImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void missingBlobOperationsRaiseProviderNeutralExceptions(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("missingblob");

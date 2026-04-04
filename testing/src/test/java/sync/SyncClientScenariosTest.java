@@ -8,9 +8,9 @@ import michaelcirkl.ubsa.client.pagination.PageRequest;
 import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import michaelcirkl.ubsa.Provider;
 import support.SyncProviderFixture;
-import support.SyncProviderFixtureArgumentsProvider;
 import support.SyncTestContext;
 
 import java.io.ByteArrayInputStream;
@@ -25,12 +25,18 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SyncClientScenariosTest {
+    private static Stream<SyncProviderFixture> fixtures() {
+        return Stream.of(Provider.AWS, Provider.Azure, Provider.GCP)
+                .map(SyncProviderFixture::create);
+    }
+
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void storesAndBrowsesSampleProjectDocuments(SyncProviderFixture fixture, @TempDir Path tempDir) throws IOException {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("scenario-docs");
@@ -109,7 +115,7 @@ class SyncClientScenariosTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void managesBucketLifecycleFromCreationToMissingState(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.newBucketName("scenario-bucket");
@@ -134,7 +140,7 @@ class SyncClientScenariosTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void acceptsExternalStyleUploadAndDownloadThroughSignedUrls(SyncProviderFixture fixture) throws Exception {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("scenario-signed");
@@ -158,7 +164,7 @@ class SyncClientScenariosTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void copiesBlobThenDeletesBlobChecksExistenceAndDeletesArchiveBucket(SyncProviderFixture fixture) {
         try (SyncTestContext context = fixture.openContext()) {
             String sourceBucket = context.createBucket("scenario-copy-src");
@@ -192,7 +198,7 @@ class SyncClientScenariosTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SyncProviderFixtureArgumentsProvider.class)
+    @MethodSource("fixtures")
     void overwritesStoredDocumentAndExposesLatestContentMetadataAndListingState(SyncProviderFixture fixture, @TempDir Path tempDir) throws IOException {
         try (SyncTestContext context = fixture.openContext()) {
             String bucketName = context.createBucket("scenario-overwrite");
