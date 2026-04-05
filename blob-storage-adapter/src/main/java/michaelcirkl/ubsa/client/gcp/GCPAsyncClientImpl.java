@@ -231,9 +231,9 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
 
     @Override
     public CompletableFuture<byte[]> getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
+        long requestedLength = ByteArrayRangeValidator.validateAndGetLength(startInclusive, endInclusive);
         return exceptionHandler.handleAsync(
                 CompletableFuture.supplyAsync(() -> {
-                    long requestedLength = ByteArrayRangeValidator.validateAndGetLength(startInclusive, endInclusive);
                     requireBlob(bucketName, blobKey);
                     try (ReadChannel readChannel = client.reader(
                             BlobId.of(bucketName, blobKey),

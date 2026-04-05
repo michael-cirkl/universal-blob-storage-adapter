@@ -1,8 +1,10 @@
 package michaelcirkl.ubsa.client.gcp;
 
 import com.google.cloud.ReadChannel;
+import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageException;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletionException;
@@ -58,6 +60,14 @@ public final class GCPReadChannelFlowPublisher implements Flow.Publisher<ByteBuf
 
             private void drain() {
                 // download backpressuree mechanism, gcp doesnt have it automatically like azure, s3
+                Blob blob = storage.get(blobId);
+                if (blob == null) {
+                    subscriber.onError(new StorageException(
+                            404,
+                            "Blob not found: gs://" + blobId.getBucket() + "/" + blobId.getName()
+                    ));
+                    return;
+                }
                 try (ReadChannel readChannel = storage.reader(
                         blobId,
                         Storage.BlobSourceOption.shouldReturnRawInputStream(true)
