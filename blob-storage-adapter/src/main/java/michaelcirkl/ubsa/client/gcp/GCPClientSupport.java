@@ -1,8 +1,7 @@
 package michaelcirkl.ubsa.client.gcp;
 
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.HttpMethod;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.BlobInfo;
 import michaelcirkl.ubsa.Blob;
 import michaelcirkl.ubsa.Bucket;
 import michaelcirkl.ubsa.client.pagination.PageRequest;
@@ -15,8 +14,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 public final class GCPClientSupport {
     private GCPClientSupport() {
     }
@@ -106,24 +103,11 @@ public final class GCPClientSupport {
     }
 
     public static URL generateGetUrl(Storage client, String bucket, String objectKey, Duration expiry) {
-        long seconds = toPositiveSeconds(expiry);
-        BlobInfo blobInfo = BlobInfo.newBuilder(bucket, objectKey).build();
-        return client.signUrl(blobInfo, seconds, TimeUnit.SECONDS);
+        return GCPV4SignedUrlSigner.generateGetUrl(client, bucket, objectKey, expiry);
     }
 
     public static URL generatePutUrl(Storage client, String bucket, String objectKey, Duration expiry, String contentType) {
-        long seconds = toPositiveSeconds(expiry);
-        BlobInfo.Builder blobBuilder = BlobInfo.newBuilder(bucket, objectKey);
-        if (contentType != null && !contentType.isBlank()) {
-            blobBuilder.setContentType(contentType);
-        }
-        BlobInfo blobInfo = blobBuilder.build();
-        List<Storage.SignUrlOption> options = new ArrayList<>();
-        options.add(Storage.SignUrlOption.httpMethod(HttpMethod.PUT));
-        if (contentType != null && !contentType.isBlank()) {
-            options.add(Storage.SignUrlOption.withContentType());
-        }
-        return client.signUrl(blobInfo, seconds, TimeUnit.SECONDS, options.toArray(Storage.SignUrlOption[]::new));
+        return GCPV4SignedUrlSigner.generatePutUrl(client, bucket, objectKey, expiry, contentType);
     }
 
     public static URI toGsUri(String bucketName, String objectKey) {
