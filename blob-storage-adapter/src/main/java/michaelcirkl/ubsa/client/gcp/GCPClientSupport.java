@@ -106,8 +106,8 @@ public final class GCPClientSupport {
         return GCPV4SignedUrlSigner.generateGetUrl(client, bucket, objectKey, expiry);
     }
 
-    public static URL generatePutUrl(Storage client, String bucket, String objectKey, Duration expiry, String contentType) {
-        return GCPV4SignedUrlSigner.generatePutUrl(client, bucket, objectKey, expiry, contentType);
+    public static URL generatePutUrl(Storage client, String bucket, String objectKey, Duration expiry) {
+        return GCPV4SignedUrlSigner.generatePutUrl(client, bucket, objectKey, expiry);
     }
 
     public static URI toGsUri(String bucketName, String objectKey) {

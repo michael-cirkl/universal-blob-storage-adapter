@@ -325,7 +325,7 @@ public class AzureAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+    public URL generatePutUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
         return exceptionHandler.handle(() -> {
             var blobClient = client.getBlobContainerAsyncClient(bucket).getBlobAsyncClient(objectKey);

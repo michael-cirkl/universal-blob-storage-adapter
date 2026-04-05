@@ -117,15 +117,11 @@ public final class AWSClientSupport {
             String bucket,
             String objectKey,
             Duration expiry,
-            String contentType,
             Supplier<S3Presigner> presignerSupplier
     ) {
         PutObjectRequest.Builder putBuilder = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(objectKey);
-        if (contentType != null && !contentType.isBlank()) {
-            putBuilder.contentType(contentType);
-        }
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(expiry)
                 .putObjectRequest(putBuilder.build())

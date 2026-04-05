@@ -369,14 +369,14 @@ class SyncClientImplTest {
             assertArrayEquals(downloadPayload, context.readRequired(getUrl));
 
             byte[] uploadPayload = "uploaded through signed url".getBytes(StandardCharsets.UTF_8);
-            URL putUrl = context.client().generatePutUrl(bucketName, "upload.txt", Duration.ofMinutes(5), "text/plain");
+            URL putUrl = context.client().generatePutUrl(bucketName, "upload.txt", Duration.ofMinutes(5));
             context.writeRequired(putUrl, "text/plain", uploadPayload);
 
             Blob uploadedBlob = context.client().getBlob(bucketName, "upload.txt");
             assertArrayEquals(uploadPayload, uploadedBlob.getContent());
 
             assertThrows(IllegalArgumentException.class, () -> context.client().generateGetUrl(bucketName, getBlobKey, Duration.ZERO));
-            assertThrows(IllegalArgumentException.class, () -> context.client().generatePutUrl(bucketName, "bad.txt", Duration.ofSeconds(-1), "text/plain"));
+            assertThrows(IllegalArgumentException.class, () -> context.client().generatePutUrl(bucketName, "bad.txt", Duration.ofSeconds(-1)));
         }
     }
 
@@ -389,7 +389,7 @@ class SyncClientImplTest {
             URL getUrl = context.client().generateGetUrl(missingBucket, "missing.txt", Duration.ofMinutes(5));
             assertEquals(HttpURLConnection.HTTP_NOT_FOUND, context.getSignedUrlResponse(getUrl).statusCode());
 
-            URL putUrl = context.client().generatePutUrl(missingBucket, "missing.txt", Duration.ofMinutes(5), "text/plain");
+            URL putUrl = context.client().generatePutUrl(missingBucket, "missing.txt", Duration.ofMinutes(5));
             assertEquals(
                     HttpURLConnection.HTTP_NOT_FOUND,
                     context.putSignedUrlResponse(putUrl, "text/plain", "missing bucket".getBytes(StandardCharsets.UTF_8)).statusCode()

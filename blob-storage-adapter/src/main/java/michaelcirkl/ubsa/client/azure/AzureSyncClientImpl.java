@@ -288,7 +288,7 @@ public class AzureSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+    public URL generatePutUrl(String bucket, String objectKey, Duration expiry) {
         validateExpiry(expiry);
         return exceptionHandler.handle(() -> {
             var blobClient = client.getBlobContainerClient(bucket).getBlobClient(objectKey);

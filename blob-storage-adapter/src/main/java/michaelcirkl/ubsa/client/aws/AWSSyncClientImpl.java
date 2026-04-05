@@ -300,9 +300,9 @@ public class AWSSyncClientImpl implements BlobStorageSyncClient {
     }
 
     @Override
-    public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+    public URL generatePutUrl(String bucket, String objectKey, Duration expiry) {
         AWSClientSupport.validateExpiry(expiry);
-        return exceptionHandler.handle(() -> AWSClientSupport.presignPutUrl(bucket, objectKey, expiry, contentType, this::createPresignerFromClientConfig));
+        return exceptionHandler.handle(() -> AWSClientSupport.presignPutUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig));
     }
 
     private void validateAwsSinglePutLength(long contentLength) {

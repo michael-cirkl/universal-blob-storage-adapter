@@ -27,15 +27,14 @@ class GCPV4SignedUrlSigner {
     }
 
     static URL generateGetUrl(Storage client, String bucket, String objectKey, Duration expiry) {
-        return sign(client, "GET", bucket, objectKey, expiry, null);
+        return sign(client, "GET", bucket, objectKey, expiry);
     }
 
-    static URL generatePutUrl(Storage client, String bucket, String objectKey, Duration expiry, String contentType) {
-        String normalizedContentType = (contentType == null || contentType.isBlank()) ? null : contentType;
-        return sign(client, "PUT", bucket, objectKey, expiry, normalizedContentType);
+    static URL generatePutUrl(Storage client, String bucket, String objectKey, Duration expiry) {
+        return sign(client, "PUT", bucket, objectKey, expiry);
     }
 
-    private static URL sign(Storage client, String method, String bucket, String objectKey, Duration expiry, String contentType) {
+    private static URL sign(Storage client, String method, String bucket, String objectKey, Duration expiry) {
         ServiceAccountCredentials credentials = requireServiceAccountCredentials(client);
         long expirySeconds = GCPClientSupport.toPositiveSeconds(expiry);
         if (expirySeconds > MAX_EXPIRY_SECONDS) {

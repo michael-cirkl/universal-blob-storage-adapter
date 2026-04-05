@@ -153,7 +153,7 @@ class AsyncClientScenariosTest {
             String blobKey = "incoming/media/photo.txt";
             byte[] payload = "uploaded through signed put".getBytes(StandardCharsets.UTF_8);
 
-            URL putUrl = context.client().generatePutUrl(bucketName, blobKey, Duration.ofMinutes(5), "text/plain");
+            URL putUrl = context.client().generatePutUrl(bucketName, blobKey, Duration.ofMinutes(5));
             context.writeRequired(putUrl, "text/plain", payload);
 
             assertTrue(context.await(context.client().blobExists(bucketName, blobKey)));

@@ -276,9 +276,9 @@ public class GCPAsyncClientImpl implements BlobStorageAsyncClient {
     }
 
     @Override
-    public URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType) {
+    public URL generatePutUrl(String bucket, String objectKey, Duration expiry) {
         GCPClientSupport.validateExpiry(expiry);
-        return exceptionHandler.handle(() -> GCPClientSupport.generatePutUrl(client, bucket, objectKey, expiry, contentType));
+        return exceptionHandler.handle(() -> GCPClientSupport.generatePutUrl(client, bucket, objectKey, expiry));
     }
 
     private ApiFuture<BlobInfo> writeBlobAsync(BlobInfo blobInfo, byte[] content, Storage.BlobWriteOption... writeOptions) {

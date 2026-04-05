@@ -162,9 +162,6 @@ public interface BlobStorageSyncClient {
 
     /**
      * Generates a temporary URL for uploading a blob.
-     *
-     * <p>{@code contentType} is optional and is used only by providers that support constraining the signed request.
-     * Azure ignores this parameter because its generated SAS upload URL does not bind the content type.
      */
-    URL generatePutUrl(String bucket, String objectKey, Duration expiry, String contentType);
+    URL generatePutUrl(String bucket, String objectKey, Duration expiry);
 }
