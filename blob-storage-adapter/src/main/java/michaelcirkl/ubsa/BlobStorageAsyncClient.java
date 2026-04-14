@@ -28,6 +28,8 @@ public interface BlobStorageAsyncClient {
      * Returns the native SDK client when it matches the requested type.
      *
      * <p>This can be used to access provider-specific features that are outside the UBSA abstraction.
+     * <p>Supported client types are AWS {@code S3AsyncClient}, Azure {@code BlobServiceAsyncClient},
+     * and GCP {@code Storage}.
      *
      * @return the native client, or {@code null} when the requested type does not match
      */
