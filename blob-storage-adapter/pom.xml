@@ -6,7 +6,7 @@
     <parent>
         <groupId>michaelcirkl.ubsa</groupId>
         <artifactId>universal-blob-storage-adapter</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>1.0.0</version>
     </parent>
 
     <artifactId>blob-storage-adapter</artifactId>
