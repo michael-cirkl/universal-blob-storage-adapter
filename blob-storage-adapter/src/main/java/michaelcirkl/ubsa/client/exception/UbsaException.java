@@ -11,7 +11,7 @@ package michaelcirkl.ubsa.client.exception;
  * exposed through {@link #getCause()}, and the provider status code when one was available.
  */
 public class UbsaException extends RuntimeException {
-    private int statusCode;
+    private Integer statusCode;
 
     public UbsaException(String message, Throwable nativeException) {
         super(message, nativeException);
@@ -25,7 +25,7 @@ public class UbsaException extends RuntimeException {
     /**
      * Returns the provider status code captured from the underlying SDK exception.
      */
-    public int getStatusCode() {
+    public Integer getStatusCode() {
         return statusCode;
     }
 }
