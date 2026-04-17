@@ -9,7 +9,9 @@
         <version>1.0.0</version>
     </parent>
 
-    <artifactId>blob-storage-adapter</artifactId>
+    <groupId>io.github.michael-cirkl</groupId>
+    <artifactId>ubsa</artifactId>
+    <version>1.0.0</version>
 
     <name>Universal Blob Storage Adapter</name>
     <description>Universal Java client for accessing Blob Storage. Supports AWS, Azure and GCP.</description>

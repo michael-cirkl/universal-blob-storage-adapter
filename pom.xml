@@ -9,7 +9,7 @@
     <version>1.0.0</version>
     <packaging>pom</packaging>
     <modules>
-        <module>blob-storage-adapter</module>
+        <module>ubsa</module>
         <module>testing</module>
     </modules>
 

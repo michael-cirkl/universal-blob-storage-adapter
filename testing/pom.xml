@@ -20,7 +20,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.michael-cirkl</groupId>
-            <artifactId>blob-storage-adapter</artifactId>
+            <artifactId>ubsa</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
