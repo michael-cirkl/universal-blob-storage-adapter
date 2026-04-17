@@ -1,9 +1,9 @@
-michaelcirkl.ubsa
-michaelcirkl.ubsa.client.aws
-michaelcirkl.ubsa.client.azure
-michaelcirkl.ubsa.client.exception
-michaelcirkl.ubsa.client.exception.types
-michaelcirkl.ubsa.client.gcp
-michaelcirkl.ubsa.client.pagination
-michaelcirkl.ubsa.client.streaming
+io.github.michaelcirkl.ubsa
+io.github.michaelcirkl.ubsa.client.aws
+io.github.michaelcirkl.ubsa.client.azure
+io.github.michaelcirkl.ubsa.client.exception
+io.github.michaelcirkl.ubsa.client.exception.types
+io.github.michaelcirkl.ubsa.client.gcp
+io.github.michaelcirkl.ubsa.client.pagination
+io.github.michaelcirkl.ubsa.client.streaming
 support
