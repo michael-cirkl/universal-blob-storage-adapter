@@ -112,5 +112,13 @@ public class Bucket {
         public Bucket build() {
             return new Bucket(this);
         }
+
+        @Override
+        public String toString() {
+            return "Builder{" +
+                    "name='" + name + '\'' +
+                    ", publicURI=" + publicURI +
+                    '}';
+        }
     }
 }

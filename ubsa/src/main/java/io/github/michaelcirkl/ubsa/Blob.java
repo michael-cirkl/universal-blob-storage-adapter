@@ -228,5 +228,18 @@ public class Blob {
         public Blob build() {
             return new Blob(this);
         }
+
+        @Override
+        public String toString() {
+            return "Builder{" +
+                    "size=" + size +
+                    ", key='" + key + '\'' +
+                    ", encoding='" + encoding + '\'' +
+                    ", etag='" + etag + '\'' +
+                    ", userMetadata=" + userMetadata +
+                    ", publicURI=" + publicURI +
+                    ", bucket='" + bucket + '\'' +
+                    '}';
+        }
     }
 }
