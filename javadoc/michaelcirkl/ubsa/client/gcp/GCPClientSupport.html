@@ -84,7 +84,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class GCPClientSupport" class="title">Class GCPClientSupport</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">java.lang.Object</a>
-<div class="inheritance">michaelcirkl.ubsa.client.gcp.GCPClientSupport</div>
+<div class="inheritance">gcp.client.io.github.michaelcirkl.GCPClientSupport</div>
 </div>
 <section class="class-description" id="class-description">
 <div class="horizontal-scroll">
@@ -107,11 +107,11 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static com.google.cloud.storage.Storage.BlobListOption[]</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#buildBlobListOptions(java.lang.String,michaelcirkl.ubsa.client.pagination.PageRequest)" class="member-name-link">buildBlobListOptions</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prefix,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#buildBlobListOptions(java.lang.String,pagination.client.io.github.michaelcirkl.PageRequest)" class="member-name-link">buildBlobListOptions</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prefix,
  <a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static com.google.cloud.storage.Storage.BucketListOption[]</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#buildBucketListOptions(michaelcirkl.ubsa.client.pagination.PageRequest)" class="member-name-link">buildBucketListOptions</a><wbr>(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#buildBucketListOptions(pagination.client.io.github.michaelcirkl.PageRequest)" class="member-name-link">buildBucketListOptions</a><wbr>(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/net/URL.html" title="class or interface in java.net" class="external-link">URL</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#generateGetUrl(com.google.cloud.storage.Storage,java.lang.String,java.lang.String,java.time.Duration)" class="member-name-link">generateGetUrl</a><wbr>(com.google.cloud.storage.Storage&nbsp;client,
@@ -144,7 +144,7 @@ loadScripts(document, 'script');</script>
  byte[]&nbsp;content)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#normalizePageRequest(michaelcirkl.ubsa.client.pagination.PageRequest)" class="member-name-link">normalizePageRequest</a><wbr>(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#normalizePageRequest(pagination.client.io.github.michaelcirkl.PageRequest)" class="member-name-link">normalizePageRequest</a><wbr>(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/net/URI.html" title="class or interface in java.net" class="external-link">URI</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#toGsUri(java.lang.String,java.lang.String)" class="member-name-link">toGsUri</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
@@ -212,7 +212,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="buildBucketListOptions(michaelcirkl.ubsa.client.pagination.PageRequest)">
+<section class="detail" id="buildBucketListOptions(pagination.client.io.github.michaelcirkl.PageRequest)">
 <h3>buildBucketListOptions</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">com.google.cloud.storage.Storage.BucketListOption[]</span>&nbsp;<span class="element-name">buildBucketListOptions</span><wbr><span class="parameters">(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</span></div>
@@ -220,7 +220,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="buildBlobListOptions(java.lang.String,michaelcirkl.ubsa.client.pagination.PageRequest)">
+<section class="detail" id="buildBlobListOptions(java.lang.String,pagination.client.io.github.michaelcirkl.PageRequest)">
 <h3>buildBlobListOptions</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">com.google.cloud.storage.Storage.BlobListOption[]</span>&nbsp;<span class="element-name">buildBlobListOptions</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prefix,
@@ -229,7 +229,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="normalizePageRequest(michaelcirkl.ubsa.client.pagination.PageRequest)">
+<section class="detail" id="normalizePageRequest(pagination.client.io.github.michaelcirkl.PageRequest)">
 <h3>normalizePageRequest</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a></span>&nbsp;<span class="element-name">normalizePageRequest</span><wbr><span class="parameters">(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</span></div>

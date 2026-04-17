@@ -129,7 +129,7 @@ loadScripts(document, 'script');</script>
 <div class="block">Copies a blob to another bucket/key and returns the ETag of the new blob when the provider exposes one.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#createBlob(java.lang.String,java.lang.String,java.io.InputStream,long,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#createBlob(java.lang.String,java.lang.String,java.io.InputStream,long,streaming.client.io.github.michaelcirkl.BlobWriteOptions)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;blobKey,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/io/InputStream.html" title="class or interface in java.io" class="external-link">InputStream</a>&nbsp;content,
  long&nbsp;contentLength,
@@ -145,7 +145,7 @@ loadScripts(document, 'script');</script>
 <div class="block">Creates or overwrites a blob from a local file.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#createBlob(java.lang.String,java.lang.String,java.nio.file.Path,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#createBlob(java.lang.String,java.lang.String,java.nio.file.Path,streaming.client.io.github.michaelcirkl.BlobWriteOptions)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;blobKey,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;sourceFile,
  <a href="client/streaming/BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</code></div>
@@ -154,13 +154,13 @@ loadScripts(document, 'script');</script>
  content encoding and user metadata.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#createBlob(java.lang.String,michaelcirkl.ubsa.Blob)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#createBlob(java.lang.String,io.github.michaelcirkl.ubsa.Blob)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&nbsp;blob)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">Creates or overwrites a blob using the key and content stored in the given <a href="Blob.html" title="class in michaelcirkl.ubsa"><code>Blob</code></a>.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Void.html" title="class or interface in java.lang" class="external-link">Void</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#createBucket(michaelcirkl.ubsa.Bucket)" class="member-name-link">createBucket</a><wbr>(<a href="Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&nbsp;bucket)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#createBucket(io.github.michaelcirkl.ubsa.Bucket)" class="member-name-link">createBucket</a><wbr>(<a href="Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&nbsp;bucket)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">Creates a bucket/container.</div>
 </div>
@@ -237,14 +237,14 @@ loadScripts(document, 'script');</script>
 <div class="block">Returns all buckets/containers by repeatedly loading pages until exhaustion.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="client/pagination/ListingPage.html" title="class in michaelcirkl.ubsa.client.pagination">ListingPage</a><wbr>&lt;<a href="Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#listBlobs(java.lang.String,java.lang.String,michaelcirkl.ubsa.client.pagination.PageRequest)" class="member-name-link">listBlobs</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#listBlobs(java.lang.String,java.lang.String,pagination.client.io.github.michaelcirkl.PageRequest)" class="member-name-link">listBlobs</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prefix,
  <a href="client/pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">Returns a single page of blobs in the given bucket/container.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="client/pagination/ListingPage.html" title="class in michaelcirkl.ubsa.client.pagination">ListingPage</a><wbr>&lt;<a href="Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#listBuckets(michaelcirkl.ubsa.client.pagination.PageRequest)" class="member-name-link">listBuckets</a><wbr>(<a href="client/pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#listBuckets(pagination.client.io.github.michaelcirkl.PageRequest)" class="member-name-link">listBuckets</a><wbr>(<a href="client/pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">Returns a single page of buckets/containers.</div>
 </div>
@@ -362,7 +362,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="createBlob(java.lang.String,michaelcirkl.ubsa.Blob)">
+<section class="detail" id="createBlob(java.lang.String,io.github.michaelcirkl.ubsa.Blob)">
 <h3>createBlob</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">createBlob</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
@@ -385,7 +385,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="createBlob(java.lang.String,java.lang.String,java.nio.file.Path,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">
+<section class="detail" id="createBlob(java.lang.String,java.lang.String,java.nio.file.Path,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">
 <h3>createBlob</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">createBlob</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
@@ -398,7 +398,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="createBlob(java.lang.String,java.lang.String,java.io.InputStream,long,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">
+<section class="detail" id="createBlob(java.lang.String,java.lang.String,java.io.InputStream,long,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">
 <h3>createBlob</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">createBlob</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
@@ -433,7 +433,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="listBuckets(michaelcirkl.ubsa.client.pagination.PageRequest)">
+<section class="detail" id="listBuckets(pagination.client.io.github.michaelcirkl.PageRequest)">
 <h3>listBuckets</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="return-type"><a href="client/pagination/ListingPage.html" title="class in michaelcirkl.ubsa.client.pagination">ListingPage</a>&lt;<a href="Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&gt;</span>&nbsp;<span class="element-name">listBuckets</span><wbr><span class="parameters">(<a href="client/pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</span></div>
@@ -444,7 +444,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="listBlobs(java.lang.String,java.lang.String,michaelcirkl.ubsa.client.pagination.PageRequest)">
+<section class="detail" id="listBlobs(java.lang.String,java.lang.String,pagination.client.io.github.michaelcirkl.PageRequest)">
 <h3>listBlobs</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="return-type"><a href="client/pagination/ListingPage.html" title="class in michaelcirkl.ubsa.client.pagination">ListingPage</a>&lt;<a href="Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&gt;</span>&nbsp;<span class="element-name">listBlobs</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
@@ -487,7 +487,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="createBucket(michaelcirkl.ubsa.Bucket)">
+<section class="detail" id="createBucket(io.github.michaelcirkl.ubsa.Bucket)">
 <h3>createBucket</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Void.html" title="class or interface in java.lang" class="external-link">Void</a></span>&nbsp;<span class="element-name">createBucket</span><wbr><span class="parameters">(<a href="Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&nbsp;bucket)</span></div>

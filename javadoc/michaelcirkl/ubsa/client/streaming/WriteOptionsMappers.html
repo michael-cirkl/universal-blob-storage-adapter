@@ -84,7 +84,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class WriteOptionsMappers" class="title">Class WriteOptionsMappers</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">java.lang.Object</a>
-<div class="inheritance">michaelcirkl.ubsa.client.streaming.WriteOptionsMappers</div>
+<div class="inheritance">streaming.client.io.github.michaelcirkl.WriteOptionsMappers</div>
 </div>
 <section class="class-description" id="class-description">
 <div class="horizontal-scroll">
@@ -107,29 +107,29 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#applyBlobToAwsPutObject(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder,michaelcirkl.ubsa.Blob)" class="member-name-link">applyBlobToAwsPutObject</a><wbr>(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder&nbsp;requestBuilder,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#applyBlobToAwsPutObject(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder,io.github.michaelcirkl.ubsa.Blob)" class="member-name-link">applyBlobToAwsPutObject</a><wbr>(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder&nbsp;requestBuilder,
  <a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&nbsp;blob)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#applyBlobToGcpBlobInfo(com.google.cloud.storage.BlobInfo.Builder,michaelcirkl.ubsa.Blob)" class="member-name-link">applyBlobToGcpBlobInfo</a><wbr>(com.google.cloud.storage.BlobInfo.Builder&nbsp;blobBuilder,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#applyBlobToGcpBlobInfo(com.google.cloud.storage.BlobInfo.Builder,io.github.michaelcirkl.ubsa.Blob)" class="member-name-link">applyBlobToGcpBlobInfo</a><wbr>(com.google.cloud.storage.BlobInfo.Builder&nbsp;blobBuilder,
  <a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&nbsp;blob)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#applyOptionsToAwsPutObject(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)" class="member-name-link">applyOptionsToAwsPutObject</a><wbr>(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder&nbsp;requestBuilder,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#applyOptionsToAwsPutObject(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder,streaming.client.io.github.michaelcirkl.BlobWriteOptions)" class="member-name-link">applyOptionsToAwsPutObject</a><wbr>(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder&nbsp;requestBuilder,
  <a href="BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#applyOptionsToGcpBlobInfo(com.google.cloud.storage.BlobInfo.Builder,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)" class="member-name-link">applyOptionsToGcpBlobInfo</a><wbr>(com.google.cloud.storage.BlobInfo.Builder&nbsp;blobBuilder,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#applyOptionsToGcpBlobInfo(com.google.cloud.storage.BlobInfo.Builder,streaming.client.io.github.michaelcirkl.BlobWriteOptions)" class="member-name-link">applyOptionsToGcpBlobInfo</a><wbr>(com.google.cloud.storage.BlobInfo.Builder&nbsp;blobBuilder,
  <a href="BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static com.azure.storage.blob.options.BlobParallelUploadOptions</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#buildAzureUploadOptions(michaelcirkl.ubsa.Blob)" class="member-name-link">buildAzureUploadOptions</a><wbr>(<a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&nbsp;blob)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#buildAzureUploadOptions(io.github.michaelcirkl.ubsa.Blob)" class="member-name-link">buildAzureUploadOptions</a><wbr>(<a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&nbsp;blob)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static com.azure.storage.blob.models.BlobHttpHeaders</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#toAzureHeaders(michaelcirkl.ubsa.client.streaming.BlobWriteOptions)" class="member-name-link">toAzureHeaders</a><wbr>(<a href="BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#toAzureHeaders(streaming.client.io.github.michaelcirkl.BlobWriteOptions)" class="member-name-link">toAzureHeaders</a><wbr>(<a href="BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#toAzureMetadata(michaelcirkl.ubsa.client.streaming.BlobWriteOptions)" class="member-name-link">toAzureMetadata</a><wbr>(<a href="BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#toAzureMetadata(streaming.client.io.github.michaelcirkl.BlobWriteOptions)" class="member-name-link">toAzureMetadata</a><wbr>(<a href="BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
@@ -149,7 +149,7 @@ loadScripts(document, 'script');</script>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="applyBlobToAwsPutObject(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder,michaelcirkl.ubsa.Blob)">
+<section class="detail" id="applyBlobToAwsPutObject(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder,io.github.michaelcirkl.ubsa.Blob)">
 <h3>applyBlobToAwsPutObject</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">applyBlobToAwsPutObject</span><wbr><span class="parameters">(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder&nbsp;requestBuilder,
@@ -158,7 +158,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="applyOptionsToAwsPutObject(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">
+<section class="detail" id="applyOptionsToAwsPutObject(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">
 <h3>applyOptionsToAwsPutObject</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">applyOptionsToAwsPutObject</span><wbr><span class="parameters">(software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder&nbsp;requestBuilder,
@@ -167,7 +167,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="applyBlobToGcpBlobInfo(com.google.cloud.storage.BlobInfo.Builder,michaelcirkl.ubsa.Blob)">
+<section class="detail" id="applyBlobToGcpBlobInfo(com.google.cloud.storage.BlobInfo.Builder,io.github.michaelcirkl.ubsa.Blob)">
 <h3>applyBlobToGcpBlobInfo</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">applyBlobToGcpBlobInfo</span><wbr><span class="parameters">(com.google.cloud.storage.BlobInfo.Builder&nbsp;blobBuilder,
@@ -176,7 +176,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="applyOptionsToGcpBlobInfo(com.google.cloud.storage.BlobInfo.Builder,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">
+<section class="detail" id="applyOptionsToGcpBlobInfo(com.google.cloud.storage.BlobInfo.Builder,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">
 <h3>applyOptionsToGcpBlobInfo</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">applyOptionsToGcpBlobInfo</span><wbr><span class="parameters">(com.google.cloud.storage.BlobInfo.Builder&nbsp;blobBuilder,
@@ -185,7 +185,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="buildAzureUploadOptions(michaelcirkl.ubsa.Blob)">
+<section class="detail" id="buildAzureUploadOptions(io.github.michaelcirkl.ubsa.Blob)">
 <h3>buildAzureUploadOptions</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">com.azure.storage.blob.options.BlobParallelUploadOptions</span>&nbsp;<span class="element-name">buildAzureUploadOptions</span><wbr><span class="parameters">(<a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&nbsp;blob)</span></div>
@@ -193,7 +193,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="toAzureHeaders(michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">
+<section class="detail" id="toAzureHeaders(streaming.client.io.github.michaelcirkl.BlobWriteOptions)">
 <h3>toAzureHeaders</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">com.azure.storage.blob.models.BlobHttpHeaders</span>&nbsp;<span class="element-name">toAzureHeaders</span><wbr><span class="parameters">(<a href="BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</span></div>
@@ -201,7 +201,7 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="toAzureMetadata(michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">
+<section class="detail" id="toAzureMetadata(streaming.client.io.github.michaelcirkl.BlobWriteOptions)">
 <h3>toAzureMetadata</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">toAzureMetadata</span><wbr><span class="parameters">(<a href="BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</span></div>

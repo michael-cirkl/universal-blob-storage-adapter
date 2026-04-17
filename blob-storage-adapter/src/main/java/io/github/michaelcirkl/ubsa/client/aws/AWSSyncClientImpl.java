@@ -1,0 +1,324 @@
+package io.github.michaelcirkl.ubsa.client.aws;
+
+import io.github.michaelcirkl.ubsa.Blob;
+import io.github.michaelcirkl.ubsa.BlobStorageSyncClient;
+import io.github.michaelcirkl.ubsa.Bucket;
+import io.github.michaelcirkl.ubsa.Provider;
+import io.github.michaelcirkl.ubsa.client.exception.AWSExceptionHandler;
+import io.github.michaelcirkl.ubsa.client.pagination.BucketListingSupport;
+import io.github.michaelcirkl.ubsa.client.pagination.ListingPage;
+import io.github.michaelcirkl.ubsa.client.pagination.PageRequest;
+import io.github.michaelcirkl.ubsa.client.streaming.*;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.*;
+
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
+
+public class AWSSyncClientImpl implements BlobStorageSyncClient {
+    private final AWSExceptionHandler exceptionHandler = new AWSExceptionHandler();
+    private final S3Client client;
+
+    public AWSSyncClientImpl(S3Client client) {
+        this.client = client;
+    }
+
+    @Override
+    public Provider getProvider() {
+        return Provider.AWS;
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> nativeType) {
+        if (nativeType == null) {
+            throw new IllegalArgumentException("Class type to unwrap must not be null.");
+        }
+        return nativeType.isInstance(client) ? nativeType.cast(client) : null;
+    }
+
+    @Override
+    public Boolean bucketExists(String bucketName) {
+        HeadBucketRequest request = HeadBucketRequest.builder().bucket(bucketName).build();
+        return exceptionHandler.handle(() -> {
+            try {
+                client.headBucket(request);
+                return true;
+            } catch (S3Exception error) {
+                if (error.statusCode() == 404) {
+                    return false;
+                }
+                throw error;
+            }
+        });
+    }
+
+    @Override
+    public Blob getBlob(String bucketName, String blobKey) {
+        return exceptionHandler.handle(() -> {
+            GetObjectRequest request = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
+
+            ResponseBytes<GetObjectResponse> responseBytes = client.getObjectAsBytes(request);
+            return AWSClientSupport.buildBlobFromGetObject(bucketName, blobKey, responseBytes);
+        });
+    }
+
+    @Override
+    public Blob getBlobMetadata(String bucketName, String blobKey) {
+        return exceptionHandler.handle(() -> {
+            HeadObjectRequest request = HeadObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
+            return AWSClientSupport.buildBlobFromHeadObject(bucketName, blobKey, client.headObject(request));
+        });
+    }
+
+    @Override
+    public InputStream openBlobStream(String bucketName, String blobKey) {
+        return exceptionHandler.handle(() -> {
+            GetObjectRequest request = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
+            return client.getObject(request);
+        });
+    }
+
+    @Override
+    public Void deleteBucket(String bucketName) {
+        return exceptionHandler.handle(() -> {
+            DeleteBucketRequest request = DeleteBucketRequest.builder()
+                    .bucket(bucketName)
+                    .build();
+            client.deleteBucket(request);
+            return null;
+        });
+    }
+
+    @Override
+    public Boolean blobExists(String bucketName, String blobKey) {
+        HeadObjectRequest request = HeadObjectRequest.builder()
+                .bucket(bucketName)
+                .key(blobKey)
+                .build();
+        return exceptionHandler.handle(() -> {
+            try {
+                client.headObject(request);
+                return true;
+            } catch (S3Exception error) {
+                if (error.statusCode() == 404) {
+                    return false;
+                }
+                throw error;
+            }
+        });
+    }
+
+    @Override
+    public String createBlob(String bucketName, Blob blob) {
+        return exceptionHandler.handle(() -> {
+            PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blob.getKey());
+            WriteOptionsMappers.applyBlobToAwsPutObject(requestBuilder, blob);
+
+            byte[] content = blob.getContent() == null ? new byte[0] : blob.getContent();
+            PutObjectRequest request = requestBuilder.build();
+            PutObjectResponse response = client.putObject(request, RequestBody.fromBytes(content));
+            return response.eTag();
+        });
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, Path sourceFile) {
+        return createBlob(bucketName, blobKey, sourceFile, null);
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, Path sourceFile, BlobWriteOptions options) {
+        FileUploadValidators.validateSourceFile(sourceFile);
+        return exceptionHandler.handle(() -> {
+            PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey);
+            WriteOptionsMappers.applyOptionsToAwsPutObject(requestBuilder, options);
+            PutObjectResponse response = client.putObject(requestBuilder.build(), RequestBody.fromFile(sourceFile));
+            return response.eTag();
+        });
+    }
+
+    @Override
+    public String createBlob(String bucketName, String blobKey, InputStream content, long contentLength, BlobWriteOptions options) {
+        ContentLengthValidators.validateContentLength(contentLength);
+        if (content == null) {
+            throw new IllegalArgumentException("Content stream must not be null.");
+        }
+        validateAwsSinglePutLength(contentLength);
+        return exceptionHandler.handle(() -> {
+            PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey);
+            WriteOptionsMappers.applyOptionsToAwsPutObject(requestBuilder, options);
+            PutObjectResponse response = client.putObject(requestBuilder.build(), RequestBody.fromInputStream(content, contentLength));
+            return response.eTag();
+        });
+    }
+
+    @Override
+    public Void deleteBlobIfExists(String bucketName, String blobKey) {
+        return exceptionHandler.handle(() -> {
+            DeleteObjectRequest request = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .build();
+            client.deleteObject(request);
+            return null;
+        });
+    }
+
+    @Override
+    public String copyBlob(String sourceBucketName, String sourceBlobKey, String destinationBucketName, String destinationBlobKey) {
+        return exceptionHandler.handle(() -> {
+            CopyObjectRequest request = CopyObjectRequest.builder()
+                    .sourceBucket(sourceBucketName)
+                    .sourceKey(sourceBlobKey)
+                    .destinationBucket(destinationBucketName)
+                    .destinationKey(destinationBlobKey)
+                    .build();
+            CopyObjectResponse response = client.copyObject(request);
+            return response.copyObjectResult() == null ? null : response.copyObjectResult().eTag();
+        });
+    }
+
+    @Override
+    public ListingPage<io.github.michaelcirkl.ubsa.Bucket> listBuckets(PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
+        return exceptionHandler.handle(() -> {
+            ListBucketsRequest.Builder requestBuilder = ListBucketsRequest.builder();
+            if (pageRequest.getPageSize() != null) {
+                requestBuilder.maxBuckets(pageRequest.getPageSize());
+            }
+            if (pageRequest.getContinuationToken() != null) {
+                requestBuilder.continuationToken(pageRequest.getContinuationToken());
+            }
+
+            ListBucketsResponse response = client.listBuckets(requestBuilder.build());
+            return ListingPage.of(AWSClientSupport.mapBuckets(response), response.continuationToken());
+        });
+    }
+
+    @Override
+    public ListingPage<Blob> listBlobs(String bucketName, String prefix, PageRequest request) {
+        PageRequest pageRequest = normalizePageRequest(request);
+        return exceptionHandler.handle(() -> {
+            ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
+                    .bucket(bucketName);
+            if (prefix != null && !prefix.isBlank()) {
+                requestBuilder.prefix(prefix);
+            }
+            if (pageRequest.getPageSize() != null) {
+                requestBuilder.maxKeys(pageRequest.getPageSize());
+            }
+            if (pageRequest.getContinuationToken() != null) {
+                requestBuilder.continuationToken(pageRequest.getContinuationToken());
+            }
+
+            ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
+            return ListingPage.of(AWSClientSupport.mapBlobsFromList(bucketName, response), response.nextContinuationToken());
+        });
+    }
+
+    @Override
+    public List<io.github.michaelcirkl.ubsa.Bucket> listAllBuckets() {
+        return BucketListingSupport.listAllBuckets(this::listBuckets);
+    }
+
+    @Override
+    public Void createBucket(Bucket bucket) {
+        return exceptionHandler.handle(() -> {
+            CreateBucketRequest request = CreateBucketRequest.builder()
+                    .bucket(bucket.getName())
+                    .build();
+            try {
+                client.createBucket(request);
+            } catch (S3Exception error) {
+                if (!exceptionHandler.isBucketAlreadyExists(error)) {
+                    throw error;
+                }
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public Void deleteBucketIfExists(String bucketName) {
+        DeleteBucketRequest request = DeleteBucketRequest.builder()
+                .bucket(bucketName)
+                .build();
+
+        return exceptionHandler.handle(() -> {
+            try {
+                client.deleteBucket(request);
+                return null;
+            } catch (S3Exception error) {
+                if (error.statusCode() == 404) {
+                    return null;
+                }
+                throw error;
+            }
+        });
+    }
+
+    @Override
+    public byte[] getByteRange(String bucketName, String blobKey, long startInclusive, long endInclusive) {
+        ByteArrayRangeValidator.validateAndGetLength(startInclusive, endInclusive);
+        return exceptionHandler.handle(() -> {
+            String range = "bytes=" + startInclusive + "-" + endInclusive;
+            GetObjectRequest request = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(blobKey)
+                    .range(range)
+                    .build();
+            return client.getObjectAsBytes(request).asByteArray();
+        });
+    }
+
+    @Override
+    public URL generateGetUrl(String bucket, String objectKey, Duration expiry) {
+        AWSClientSupport.validateExpiry(expiry);
+        return exceptionHandler.handle(() -> AWSClientSupport.presignGetUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig));
+    }
+
+    @Override
+    public URL generatePutUrl(String bucket, String objectKey, Duration expiry) {
+        AWSClientSupport.validateExpiry(expiry);
+        return exceptionHandler.handle(() -> AWSClientSupport.presignPutUrl(bucket, objectKey, expiry, this::createPresignerFromClientConfig));
+    }
+
+    private void validateAwsSinglePutLength(long contentLength) {
+        // PUT object max size is 5 GiB
+        long maxSinglePutBytes = 5L * 1024L * 1024L * 1024L;
+        if (contentLength > maxSinglePutBytes) {
+            throw new IllegalArgumentException("AWS single PUT upload supports up to 5 GiB. Received: " + contentLength + " bytes.");
+        }
+    }
+
+    private software.amazon.awssdk.services.s3.presigner.S3Presigner createPresignerFromClientConfig() {
+        return AWSClientSupport.createPresignerFromClientConfig(
+                client.serviceClientConfiguration(),
+                () -> client.utilities().getUrl(AWSClientSupport.pathStyleProbeRequest())
+        );
+    }
+
+    private PageRequest normalizePageRequest(PageRequest request) {
+        return request == null ? PageRequest.firstPage() : request;
+    }
+}

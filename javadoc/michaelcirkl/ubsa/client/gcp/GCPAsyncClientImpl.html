@@ -84,7 +84,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class GCPAsyncClientImpl" class="title">Class GCPAsyncClientImpl</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">java.lang.Object</a>
-<div class="inheritance">michaelcirkl.ubsa.client.gcp.GCPAsyncClientImpl</div>
+<div class="inheritance">gcp.client.io.github.michaelcirkl.GCPAsyncClientImpl</div>
 </div>
 <section class="class-description" id="class-description">
 <div class="horizontal-scroll">
@@ -151,7 +151,7 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
 <div class="block">Creates or overwrites a blob from a local file.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createBlob(java.lang.String,java.lang.String,java.nio.file.Path,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createBlob(java.lang.String,java.lang.String,java.nio.file.Path,streaming.client.io.github.michaelcirkl.BlobWriteOptions)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;blobKey,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;sourceFile,
  <a href="../streaming/BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</code></div>
@@ -160,7 +160,7 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
  content encoding and user metadata.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createBlob(java.lang.String,java.lang.String,java.util.concurrent.Flow.Publisher,long,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createBlob(java.lang.String,java.lang.String,java.util.concurrent.Flow.Publisher,long,streaming.client.io.github.michaelcirkl.BlobWriteOptions)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;blobKey,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/Flow.Publisher.html" title="class or interface in java.util.concurrent" class="external-link">Flow.Publisher</a>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/nio/ByteBuffer.html" title="class or interface in java.nio" class="external-link">ByteBuffer</a>&gt;&nbsp;content,
  long&nbsp;contentLength,
@@ -169,13 +169,13 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
 <div class="block">Creates or overwrites a blob from a publisher with a known content length.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createBlob(java.lang.String,michaelcirkl.ubsa.Blob)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createBlob(java.lang.String,io.github.michaelcirkl.ubsa.Blob)" class="member-name-link">createBlob</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&nbsp;blob)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Creates or overwrites a blob using the key and content stored in the given <a href="../../Blob.html" title="class in michaelcirkl.ubsa"><code>Blob</code></a>.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Void.html" title="class or interface in java.lang" class="external-link">Void</a>&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createBucket(michaelcirkl.ubsa.Bucket)" class="member-name-link">createBucket</a><wbr>(<a href="../../Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&nbsp;bucket)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createBucket(io.github.michaelcirkl.ubsa.Bucket)" class="member-name-link">createBucket</a><wbr>(<a href="../../Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&nbsp;bucket)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Creates a bucket/container.</div>
 </div>
@@ -240,14 +240,14 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
 <div class="block">Returns all buckets/containers by repeatedly loading pages until exhaustion.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a><wbr>&lt;<a href="../pagination/ListingPage.html" title="class in michaelcirkl.ubsa.client.pagination">ListingPage</a>&lt;<a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&gt;&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#listBlobs(java.lang.String,java.lang.String,michaelcirkl.ubsa.client.pagination.PageRequest)" class="member-name-link">listBlobs</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#listBlobs(java.lang.String,java.lang.String,pagination.client.io.github.michaelcirkl.PageRequest)" class="member-name-link">listBlobs</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prefix,
  <a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a single page of blobs in the given bucket/container.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a><wbr>&lt;<a href="../pagination/ListingPage.html" title="class in michaelcirkl.ubsa.client.pagination">ListingPage</a>&lt;<a href="../../Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&gt;&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#listBuckets(michaelcirkl.ubsa.client.pagination.PageRequest)" class="member-name-link">listBuckets</a><wbr>(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#listBuckets(pagination.client.io.github.michaelcirkl.PageRequest)" class="member-name-link">listBuckets</a><wbr>(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a single page of buckets/containers.</div>
 </div>
@@ -269,7 +269,7 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
 <h3 id="methods-inherited-from-class-java.lang.Object">Methods inherited from class&nbsp;java.lang.<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></h3>
 <code><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#clone()" title="class or interface in java.lang" class="external-link">clone</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#equals(java.lang.Object)" title="class or interface in java.lang" class="external-link">equals</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#finalize()" title="class or interface in java.lang" class="external-link">finalize</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#getClass()" title="class or interface in java.lang" class="external-link">getClass</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#hashCode()" title="class or interface in java.lang" class="external-link">hashCode</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#notify()" title="class or interface in java.lang" class="external-link">notify</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#notifyAll()" title="class or interface in java.lang" class="external-link">notifyAll</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#toString()" title="class or interface in java.lang" class="external-link">toString</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#wait()" title="class or interface in java.lang" class="external-link">wait</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#wait(long)" title="class or interface in java.lang" class="external-link">wait</a>, <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Object.html#wait(long,int)" title="class or interface in java.lang" class="external-link">wait</a></code></div>
 <div class="inherited-list">
-<h3 id="methods-inherited-from-class-michaelcirkl.ubsa.BlobStorageAsyncClient">Methods inherited from interface&nbsp;michaelcirkl.ubsa.<a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></h3>
+<h3 id="methods-inherited-from-class-io.github.michaelcirkl.ubsa.BlobStorageAsyncClient">Methods inherited from interface&nbsp;michaelcirkl.ubsa.<a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></h3>
 <code><a href="../../BlobStorageAsyncClient.html#streamBlobs(java.lang.String,java.lang.String,int)">streamBlobs</a>, <a href="../../BlobStorageAsyncClient.html#streamBuckets(int)">streamBuckets</a></code></div>
 </section>
 </li>
@@ -423,18 +423,18 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
 </section>
 </li>
 <li>
-<section class="detail" id="createBlob(java.lang.String,michaelcirkl.ubsa.Blob)">
+<section class="detail" id="createBlob(java.lang.String,io.github.michaelcirkl.ubsa.Blob)">
 <h3>createBlob</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">createBlob</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&nbsp;blob)</span></div>
-<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,michaelcirkl.ubsa.Blob)">BlobStorageAsyncClient</a></code></span></div>
+<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,io.github.michaelcirkl.ubsa.Blob)">BlobStorageAsyncClient</a></code></span></div>
 <div class="block">Creates or overwrites a blob using the key and content stored in the given <a href="../../Blob.html" title="class in michaelcirkl.ubsa"><code>Blob</code></a>.
 
  <p>If <a href="../../Blob.html#getContent()"><code>Blob.getContent()</code></a> is <code>null</code>, an empty blob is created.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,michaelcirkl.ubsa.Blob)">createBlob</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
+<dd><code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,io.github.michaelcirkl.ubsa.Blob)">createBlob</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
 </dl>
 </div>
 </section>
@@ -456,25 +456,25 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
 </section>
 </li>
 <li>
-<section class="detail" id="createBlob(java.lang.String,java.lang.String,java.nio.file.Path,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">
+<section class="detail" id="createBlob(java.lang.String,java.lang.String,java.nio.file.Path,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">
 <h3>createBlob</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">createBlob</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;blobKey,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;sourceFile,
  <a href="../streaming/BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</span></div>
-<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,java.lang.String,java.nio.file.Path,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">BlobStorageAsyncClient</a></code></span></div>
+<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,java.lang.String,java.nio.file.Path,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">BlobStorageAsyncClient</a></code></span></div>
 <div class="block">Creates or overwrites a blob from a local file, applying optional write metadata such as
  content encoding and user metadata.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,java.lang.String,java.nio.file.Path,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">createBlob</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
+<dd><code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,java.lang.String,java.nio.file.Path,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">createBlob</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
 </dl>
 </div>
 </section>
 </li>
 <li>
-<section class="detail" id="createBlob(java.lang.String,java.lang.String,java.util.concurrent.Flow.Publisher,long,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">
+<section class="detail" id="createBlob(java.lang.String,java.lang.String,java.util.concurrent.Flow.Publisher,long,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">
 <h3>createBlob</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">createBlob</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
@@ -482,11 +482,11 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/Flow.Publisher.html" title="class or interface in java.util.concurrent" class="external-link">Flow.Publisher</a>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/nio/ByteBuffer.html" title="class or interface in java.nio" class="external-link">ByteBuffer</a>&gt;&nbsp;content,
  long&nbsp;contentLength,
  <a href="../streaming/BlobWriteOptions.html" title="class in michaelcirkl.ubsa.client.streaming">BlobWriteOptions</a>&nbsp;options)</span></div>
-<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,java.lang.String,java.util.concurrent.Flow.Publisher,long,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">BlobStorageAsyncClient</a></code></span></div>
+<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,java.lang.String,java.util.concurrent.Flow.Publisher,long,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">BlobStorageAsyncClient</a></code></span></div>
 <div class="block">Creates or overwrites a blob from a publisher with a known content length.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,java.lang.String,java.util.concurrent.Flow.Publisher,long,michaelcirkl.ubsa.client.streaming.BlobWriteOptions)">createBlob</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
+<dd><code><a href="../../BlobStorageAsyncClient.html#createBlob(java.lang.String,java.lang.String,java.util.concurrent.Flow.Publisher,long,streaming.client.io.github.michaelcirkl.BlobWriteOptions)">createBlob</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
 </dl>
 </div>
 </section>
@@ -524,36 +524,36 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
 </section>
 </li>
 <li>
-<section class="detail" id="listBuckets(michaelcirkl.ubsa.client.pagination.PageRequest)">
+<section class="detail" id="listBuckets(pagination.client.io.github.michaelcirkl.PageRequest)">
 <h3>listBuckets</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a>&lt;<a href="../pagination/ListingPage.html" title="class in michaelcirkl.ubsa.client.pagination">ListingPage</a>&lt;<a href="../../Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&gt;&gt;</span>&nbsp;<span class="element-name">listBuckets</span><wbr><span class="parameters">(<a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</span></div>
-<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#listBuckets(michaelcirkl.ubsa.client.pagination.PageRequest)">BlobStorageAsyncClient</a></code></span></div>
+<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#listBuckets(pagination.client.io.github.michaelcirkl.PageRequest)">BlobStorageAsyncClient</a></code></span></div>
 <div class="block">Returns a single page of buckets/containers.
 
  <p>If <code>request</code> is <code>null</code>, the first page is requested with provider defaults.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code><a href="../../BlobStorageAsyncClient.html#listBuckets(michaelcirkl.ubsa.client.pagination.PageRequest)">listBuckets</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
+<dd><code><a href="../../BlobStorageAsyncClient.html#listBuckets(pagination.client.io.github.michaelcirkl.PageRequest)">listBuckets</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
 </dl>
 </div>
 </section>
 </li>
 <li>
-<section class="detail" id="listBlobs(java.lang.String,java.lang.String,michaelcirkl.ubsa.client.pagination.PageRequest)">
+<section class="detail" id="listBlobs(java.lang.String,java.lang.String,pagination.client.io.github.michaelcirkl.PageRequest)">
 <h3>listBlobs</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a>&lt;<a href="../pagination/ListingPage.html" title="class in michaelcirkl.ubsa.client.pagination">ListingPage</a>&lt;<a href="../../Blob.html" title="class in michaelcirkl.ubsa">Blob</a>&gt;&gt;</span>&nbsp;<span class="element-name">listBlobs</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;bucketName,
  <a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prefix,
  <a href="../pagination/PageRequest.html" title="class in michaelcirkl.ubsa.client.pagination">PageRequest</a>&nbsp;request)</span></div>
-<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#listBlobs(java.lang.String,java.lang.String,michaelcirkl.ubsa.client.pagination.PageRequest)">BlobStorageAsyncClient</a></code></span></div>
+<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#listBlobs(java.lang.String,java.lang.String,pagination.client.io.github.michaelcirkl.PageRequest)">BlobStorageAsyncClient</a></code></span></div>
 <div class="block">Returns a single page of blobs in the given bucket/container.
 
  <p>If <code>prefix</code> is non-blank, only matching blob keys are returned. If <code>request</code> is
  <code>null</code>, the first page is requested with provider defaults.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code><a href="../../BlobStorageAsyncClient.html#listBlobs(java.lang.String,java.lang.String,michaelcirkl.ubsa.client.pagination.PageRequest)">listBlobs</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
+<dd><code><a href="../../BlobStorageAsyncClient.html#listBlobs(java.lang.String,java.lang.String,pagination.client.io.github.michaelcirkl.PageRequest)">listBlobs</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
 </dl>
 </div>
 </section>
@@ -573,15 +573,15 @@ implements <a href="../../BlobStorageAsyncClient.html" title="interface in micha
 </section>
 </li>
 <li>
-<section class="detail" id="createBucket(michaelcirkl.ubsa.Bucket)">
+<section class="detail" id="createBucket(io.github.michaelcirkl.ubsa.Bucket)">
 <h3>createBucket</h3>
 <div class="horizontal-scroll">
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/concurrent/CompletableFuture.html" title="class or interface in java.util.concurrent" class="external-link">CompletableFuture</a>&lt;<a href="https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/Void.html" title="class or interface in java.lang" class="external-link">Void</a>&gt;</span>&nbsp;<span class="element-name">createBucket</span><wbr><span class="parameters">(<a href="../../Bucket.html" title="class in michaelcirkl.ubsa">Bucket</a>&nbsp;bucket)</span></div>
-<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#createBucket(michaelcirkl.ubsa.Bucket)">BlobStorageAsyncClient</a></code></span></div>
+<div class="block"><span class="description-from-type-label">Description copied from interface:&nbsp;<code><a href="../../BlobStorageAsyncClient.html#createBucket(io.github.michaelcirkl.ubsa.Bucket)">BlobStorageAsyncClient</a></code></span></div>
 <div class="block">Creates a bucket/container.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code><a href="../../BlobStorageAsyncClient.html#createBucket(michaelcirkl.ubsa.Bucket)">createBucket</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
+<dd><code><a href="../../BlobStorageAsyncClient.html#createBucket(io.github.michaelcirkl.ubsa.Bucket)">createBucket</a></code>&nbsp;in interface&nbsp;<code><a href="../../BlobStorageAsyncClient.html" title="interface in michaelcirkl.ubsa">BlobStorageAsyncClient</a></code></dd>
 </dl>
 </div>
 </section>

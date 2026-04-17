@@ -1,12 +1,12 @@
 package async;
 
-import michaelcirkl.ubsa.Blob;
-import michaelcirkl.ubsa.Bucket;
-import michaelcirkl.ubsa.Provider;
-import michaelcirkl.ubsa.client.exception.UbsaException;
-import michaelcirkl.ubsa.client.pagination.ListingPage;
-import michaelcirkl.ubsa.client.pagination.PageRequest;
-import michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
+import io.github.michaelcirkl.ubsa.Blob;
+import io.github.michaelcirkl.ubsa.Bucket;
+import io.github.michaelcirkl.ubsa.Provider;
+import io.github.michaelcirkl.ubsa.client.exception.UbsaException;
+import io.github.michaelcirkl.ubsa.client.pagination.ListingPage;
+import io.github.michaelcirkl.ubsa.client.pagination.PageRequest;
+import io.github.michaelcirkl.ubsa.client.streaming.BlobWriteOptions;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;

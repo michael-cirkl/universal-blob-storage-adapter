@@ -1,8 +1,8 @@
 package support;
 
-import michaelcirkl.ubsa.BlobStorageAsyncClient;
-import michaelcirkl.ubsa.Bucket;
-import michaelcirkl.ubsa.Provider;
+import io.github.michaelcirkl.ubsa.BlobStorageAsyncClient;
+import io.github.michaelcirkl.ubsa.Bucket;
+import io.github.michaelcirkl.ubsa.Provider;
 
 import java.io.IOException;
 import java.net.URL;
