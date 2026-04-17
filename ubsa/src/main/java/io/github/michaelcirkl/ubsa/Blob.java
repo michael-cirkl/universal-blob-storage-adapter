@@ -113,6 +113,18 @@ public class Blob {
         return new Builder();
     }
 
+    @Override
+    public String toString() {
+        return "Blob{" +
+                "size=" + size +
+                ", key='" + key + '\'' +
+                ", encoding='" + encoding + '\'' +
+                ", etag='" + etag + '\'' +
+                ", publicURI=" + publicURI +
+                ", bucket='" + bucket + '\'' +
+                '}';
+    }
+
     public static class Builder {
         private byte[] content;
         private long size;
@@ -227,19 +239,6 @@ public class Blob {
 
         public Blob build() {
             return new Blob(this);
-        }
-
-        @Override
-        public String toString() {
-            return "Builder{" +
-                    "size=" + size +
-                    ", key='" + key + '\'' +
-                    ", encoding='" + encoding + '\'' +
-                    ", etag='" + etag + '\'' +
-                    ", userMetadata=" + userMetadata +
-                    ", publicURI=" + publicURI +
-                    ", bucket='" + bucket + '\'' +
-                    '}';
         }
     }
 }

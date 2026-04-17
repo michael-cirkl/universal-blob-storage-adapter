@@ -56,6 +56,14 @@ public class Bucket {
         return creationDate;
     }
 
+    @Override
+    public String toString() {
+        return "Bucket{" +
+                "name='" + name + '\'' +
+                ", publicURI=" + publicURI +
+                '}';
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -111,14 +119,6 @@ public class Bucket {
 
         public Bucket build() {
             return new Bucket(this);
-        }
-
-        @Override
-        public String toString() {
-            return "Builder{" +
-                    "name='" + name + '\'' +
-                    ", publicURI=" + publicURI +
-                    '}';
         }
     }
 }
