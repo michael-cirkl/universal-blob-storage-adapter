@@ -1,6 +1,4 @@
 # Universal Blob Storage Adapter (UBSA)
-*Write once, use any object storage provider.*
-
 UBSA is a Java library that provides a unified async client for object storage services including S3, Azure Blob Storage, and Google Cloud Storage.
 
 It offers a single, consistent API across providers, making it easy to switch backends without rewriting your application code.
