@@ -20,11 +20,11 @@ code changes—only passing a different client to the factory.
 
 ## Features
 
-- 🌐 Multi-provider support (S3, Azure Blob Storage, GCS, S3-compatible)
-- ⚡ Native async and sync clients
-- 🔌 Built on top of official SDKs
-- 📦 Simple, consistent API
-- 🚀 Streaming support, pre-signed URLs, and access to native clients
+-  Multi-provider support (S3, Azure Blob Storage, GCS, S3-compatible)
+-  Native async and sync clients
+-  Built on top of official SDKs
+-  Simple, consistent API
+-  Streaming support, pre-signed URLs, and access to native clients
 
 ## Example
 ```java
