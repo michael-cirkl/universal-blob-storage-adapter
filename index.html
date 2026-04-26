@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Universal Blob Storage Adapter Documentation</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+
+    :root {
+      color-scheme: light;
+      --ink: #18212b;
+      --muted: #556270;
+      --accent: #0d5d7a;
+      --paper: #ffffff;
+      --panel: #f4f7f9;
+      --rule: #d9e2e8;
+      --code-bg: #f1f5f8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.55;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    main {
+      max-width: 190mm;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28pt;
+      line-height: 1.15;
+    }
+
+    .toc {
+      margin-top: 14mm;
+      padding: 10mm 11mm;
+      border: 1px solid var(--rule);
+      background: var(--panel);
+      page-break-after: always;
+    }
+
+    .toc h2 {
+      margin-top: 0;
+    }
+
+    .toc ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .toc li + li {
+      margin-top: 6px;
+    }
+
+    section {
+      page-break-before: always;
+    }
+
+    section h2 {
+      margin: 0 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--rule);
+      color: var(--accent);
+      font-size: 20pt;
+      line-height: 1.2;
+    }
+
+    h3, h4, h5, h6 {
+      margin: 18px 0 8px;
+      color: #1e2e3b;
+      line-height: 1.25;
+    }
+
+    h3 {
+      font-size: 15pt;
+    }
+
+    h4 {
+      font-size: 13pt;
+    }
+
+    p, ul, ol, pre {
+      margin: 10px 0;
+    }
+
+    ul, ol {
+      padding-left: 22px;
+    }
+
+    li + li {
+      margin-top: 4px;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--code-bg);
+    }
+
+    pre {
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      padding: 10px 12px;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      background: var(--code-bg);
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <nav class="toc">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#introduction">Introduction</a></li>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#getting-started">Getting Started</a></li>
+<li><a href="#calling-unsupported-methods-natively">Calling Unsupported Methods Natively</a></li>
+<li><a href="#exception-handling">Exception Handling</a></li>
+<li><a href="#local-build-and-testing">Local Build and Testing</a></li>
+      </ol>
+    </nav>
+    <section id="introduction"><h2>Introduction</h2><h3>Universal Blob Storage Adapter (UBSA)</h3>
+<p>UBSA is a Java library that provides a unified async client for object storage services including S3, Azure Blob Storage, and Google Cloud Storage.</p>
+<p>It offers a single, consistent API across providers, making it easy to switch backends without rewriting your application code.</p>
+<h4>Why UBSA?</h4>
+<p>Migrating object storage across providers is painful:</p>
+<ul><li>Different SDKs and APIs</li><li>Inconsistent exception handling</li><li>Vendor lock-in</li></ul>
+<p>UBSA solves this with a two-step approach:</p>
+<ol><li><strong>Migrate in increments</strong>: incrementally rewrite your storage code to use the UBSA API</li><li><strong>Switch anytime</strong>: change the underlying provider via configuration</li></ol>
+<p>This means that after the initial migration, switching between S3, Azure Blob Storage, or GCS no longer requires code changes—only passing a different client to the factory.</p>
+<h4>Features</h4>
+<ul><li>Multi-provider support (S3, Azure Blob Storage, GCS, S3-compatible)</li><li>Native async and sync clients</li><li>Built on top of official SDKs</li><li>Simple, consistent API</li><li>Streaming support, pre-signed URLs, and access to native clients</li></ul>
+<h4>Example</h4>
+<pre><code>S3Client nativeClient;
+// BlobServiceAsyncClient nativeClient;
+
+BlobStorageAsyncClient client = BlobStorageClientFactory.getAsyncClient(nativeClient);
+
+// Same API regardless of provider
+client.createBucket(...);
+client.createBlob(...);
+client.getBlob(...);</code></pre>
+<h4>Documentation</h4>
+<p>Library is documented on wiki: <a href="https://github.com/michael-cirkl/universal-blob-storage-adapter/wiki">https://github.com/michael-cirkl/universal-blob-storage-adapter/wiki</a></p>
+<p>Maven Central download link: <a href="https://central.sonatype.com/artifact/io.github.michael-cirkl/ubsa/overview">https://central.sonatype.com/artifact/io.github.michael-cirkl/ubsa/overview</a></p></section>
+<section id="overview"><h2>Overview</h2><p>Universal Blob Storage Adapter (UBSA) is a universal object storage client that can access S3, Azure Blob Storage and Google Cloud Storage using a unified interface. It uses their Java SDKs under the hood, so configuration and behaviour is the same. UBSA has both an asynchronous and synchronous client. It is first, or one of the first libraries to ever make an async nonblocking universal client for blob storage.</p>
+<p>UBSA keeps client configuration native, but storage operations and exception handling unified. And because it uses SDKs under the hood, it allows you to call methods that are outside the interface too, with the configuration of the client you provided. This again makes it the first solution of its kind to provide forward compatibility.</p>
+<p>It is a wrapper around <code>S3Client</code>, <code>BlobServiceClient</code>, <code>Storage</code> etc. You call it via its unified interface, it then calls these SDK clients. Ubsa is a Java (JVM ecosystem) library and all that is needed to install it is to download it from Maven Central.</p>
+<p>UBSA is a tool that can help when migrating Object Storage providers, or even just Object Storage SDKs with the same provider (GCP). You can incrementally rewrite your storage operations to use the UBSA client. When you are done, you switch the configuration provided to UBSA, and it will start using a new SDK under the hood.</p>
+<p>Link to Maven Central: <a href="https://central.sonatype.com/artifact/io.github.michael-cirkl/ubsa/overview">https://central.sonatype.com/artifact/io.github.michael-cirkl/ubsa/overview</a></p></section>
+<section id="getting-started"><h2>Getting Started</h2><p>This page describes how to use the UBSA library.</p>
+<p>This shows a minimal example how to set up the library.</p>
+<ol><li>Download the UBSA library from Maven Central <a href="https://central.sonatype.com/artifact/io.github.michael-cirkl/ubsa/overview">https://central.sonatype.com/artifact/io.github.michael-cirkl/ubsa/overview</a></li><li>Download a Java Blob Storage SDK, either for S3, Azure Blob Storage or Google Cloud Storage.</li><li>Configure a client from the installed SDK (<code>S3Client</code>, <code>S3AsyncClient</code>, <code>BlobServiceClient</code>, <code>BlobServiceAsyncClient</code>, <code>Storage</code>)</li></ol>
+<p>For example:</p>
+<pre><code>S3Client s3 = S3Client.builder()
+    .region(Region.US_EAST_1)
+    .credentialsProvider(DefaultCredentialsProvider.create())
+    .build();</code></pre>
+<ol><li>Create a universal client from the library using the provided <code>BlobStorageClientFactory</code>. Example for S3:</li></ol>
+<pre><code>// Sync
+BlobStorageSyncClient client = BlobStorageClientFactory.getSyncClient(s3);
+// Async
+BlobStorageAsyncClient client = BlobStorageClientFactory.getAsyncClient(s3);</code></pre>
+<ol><li>Now you can call storage operations on your universal client.</li></ol>
+<pre><code>client.createBucket(...);
+client.createBlob(...);
+client.getBlob(...);</code></pre>
+<p>And that&#x27;s it. You are welcome to build any abstractions on top of it, the library accepts any configured client, so if you are using Dependency Injection, S3 Quarkus extension or anything similar, that is supported too.</p>
+<p>If you want async Google Cloud Storage Client, create <code>Storage</code> with <code>.grpc()</code> and pass it into <code>createAsyncClient()</code>.</p>
+<p>A recommended way to use Ubsa for migrations is making a wrapper class with references to both the native client and the library client, and incrementally rewriting your application to use the library&#x27;s client. This allows more careful testing and can avoid unforeseen issues.</p></section>
+<section id="calling-unsupported-methods-natively"><h2>Calling Unsupported Methods Natively</h2><p>The library provides a synchronous and asynchronous unified client for accessing blob storage. However, it does not support all possible storage methods. The library allows you to unwrap a native configured client (<code>S3Client</code>, <code>BlobServiceClient</code>, <code>Storage</code> etc.) from the library&#x27;s unified client, and use it to call a method that is only available on for example S3 SDK.</p>
+<pre><code>BlobStorageSyncClient client = ...
+S3Client nativeClient = client.unwrap(S3Client.class);
+nativeClient.createMultipartUpload(...);</code></pre>
+<p>While doing this in methods is possible, a more maintainable way to do this is to create a wrapper class, that holds references to both the clients, implements the interface and adds extra methods. For example:</p>
+<pre><code>class ClientWrapper implements BlobStorageSyncClient {
+   S3Client nativeClient;
+   BlobStorageSyncClient client;
+
+   @Override
+   Boolean bucketExists(String bucketName) {
+       return client.bucketExists(bucketName);
+   }
+
+   CreateMultipartUploadResponse createMultipartUpload(CreateMultipartUploadRequest request) {
+      return nativeClient.createMultipartUpload(request);
+   }
+
+   .... other methods
+}</code></pre>
+<p>This is an S3 example but it is possible with all 3 supported SDKs. With both sync and async. Since the library&#x27;s client is created by passing the native SDK&#x27;s client into BlobStorageClientFactory, unwrapping is not strictly necessary here, as you can just configure lets say S3Client, then pass it into <code>BlobStorageClientFactory.getSyncClient(nativeClient)</code>, which will return BlobStorageSyncClient.</p></section>
+<section id="exception-handling"><h2>Exception Handling</h2><p>The library emits two types of exceptions. <code>UbsaException</code> for errors related to storage, and <code>IllegalArgumentException</code> for basic validations (negative number of seconds etc.)</p>
+<p><code>UbsaException</code> is a replacement for <code>S3Exception</code>, <code>BlobStorageException</code> and <code>StorageException</code> from S3, Azure and GCP SDKs. Just like them, it contains a method to get the HTTP status code of the response. This is taken from the original exceptions from the SDK, but it can be null if the cause of the error is an IOException, where a status code is not available.</p>
+<p>When using S3 or Azure Blob Storage, the library throws more specific exceptions, such as <code>BucketNotFoundException</code> or <code>AccessDeniedException</code>. These are subtypes of <code>UbsaException</code>, meaning that all storage exceptions will be caught, if you catch <code>UbsaException</code>. Google Cloud Storage SDK does not expose the cause of the error, so when using GCS SDK for the client, the library only throws <code>UbsaException</code>.</p>
+<p>This means that if you are migrating from S3/Azure to Google Cloud Storage, you will need to rewrite your exception handling to only catch <code>UbsaException</code>. However, if you are for example currently using S3 and want to migrate to Azure, you can keep catching specific exceptions, and just rewrite them from specific S3 exceptions to specific Ubsa exceptions.</p>
+<p>The library contains these specific exception types. Not all S3/Azure exception causes are covered, the ones without a mapping throw <code>UbsaException</code>. If you are interested to see which S3 and Azure Blob Storage exception causes map to these exception types, check <code>client.exception.types</code> package, or read it from a javadoc report, since this information is contained in javadoc comments.</p>
+<ul><li>AccessDeniedException</li><li>AuthenticationFailedException</li><li>BlobNotFoundException</li><li>BucketNotFoundException</li><li>BucketAlreadyExistsException</li><li>ConditionFailedException</li><li>InvalidRequestException</li><li>RequestTimeoutException</li></ul></section>
+<section id="local-build-and-testing"><h2>Local Build and Testing</h2><h4>Build</h4>
+<p>This section describes how to build and run tests, if you want to make changes to the library locally.</p>
+<p>The library is a multi-module maven project. The code of the library is in the <code>blob-storage-adapter</code> module, and tests are in the <code>testing</code> module. This allows you to test the library with different version SDKs than it was built with, which is supported behaviour.</p>
+<p>Building is quite simple, the library itself (blob-storage-adapter module) can be built with <code>maven package</code></p>
+<h4>Test</h4>
+<p>The library includes several integration tests and testing scenarios that cover basically all methods of the client interfaces. They are located in the <code>testing</code> module. The test environment is configured via a <code>.env</code> file you should place in the root of the main project. There is a <code>.env.example</code> file that shows possible configuration. The .env file is used to provide credentials that are going to be used by the SDKs when testing.</p>
+<p>Azure Blob Storage and S3 have emulators of their blob storage which can be used for local testing. It is much faster compared to making network calls to real datacenters, and free, therefore it is recommended to use them. The <code>.env.example</code> file as is included in the repository already has the right credentials to connect and use these emulators. All you need is to launch them, which can be done via <code>docker-compose.yml</code> file in root of the project.</p>
+<p>If you don&#x27;t configure credentials for a particular SDK in the <code>.env</code> file, the tests for that SDK will be skipped. Google cloud does not have a working emulator, so if you copy the <code>.env.example</code> file to <code>.env</code> 1:1, it will launch S3 and Azure Blob Storage tests on emulators, and skip Google Cloud tests.</p>
+<h4>Google Cloud setup</h4>
+<p>If you want to run even the Google Cloud tests, you need to create a Google Cloud account and run the tests on their public cloud infrastructure. They do have a 90-day limited free tier.</p>
+<p><code>gcloud iam service-accounts keys create key.json --iam-account=my-service-account@YOUR_PROJECT_ID.iam.gserviceaccount.com</code></p>
+<ol><li>Setup Google Cloud account on <a href="https://console.cloud.google.com/">https://console.cloud.google.com/</a></li><li>Create a project. Put the id of the project into the <code>.env</code> file as shown in the example</li><li>Create a service account (Service accounts tab under IAM &amp; Admin)</li><li>Create a custom role (Roles tab accounts tab under IAM &amp; Admin)</li><li>Give the role the needed permissions (last section of this wiki page)</li><li>Assign the role to the service account (Service accounts -&gt; Permissions -&gt; Manage Access -&gt; Assign roles -&gt; Add another role)</li><li>Download gcloud CLI from <a href="https://cloud.google.com/cli">https://cloud.google.com/cli</a></li><li>Login to the CLI using <code>gcloud auth login</code></li><li>Set your project id using <code>gcloud config set project YOUR_PROJECT_ID</code></li><li>Open the detail of the service account you created in Google Cloud Console. Copy the email. Then generate a key locally, and use the email as the parameter here, instead of the example:</li><li>Run the tests with this environment variable pointing to that key file: <code>GOOGLE_APPLICATION_CREDENTIALS=absolutePathToTheKey</code></li></ol>
+<p>If it is skipping GCP tests with error: <code>Skipping GCP tests: no GCP backend configured.</code>, you haven&#x27;t put the project id in the <code>.env</code> file, as is shown in the example.</p>
+<p>If it is skipping GCP tests with error: <code>Skipping GCP tests: Application Default Credentials are not configured.</code>, you haven&#x27;t set the <code>GOOGLE_APPLICATION_CREDENTIALS</code> environment variable.</p>
+<p>While it is possible to login just with your Google Account and not via Service Account, it does not allow presigning URLs, so some tests will fail on permissions. Therefore it is reccomended to use a service account as shown above.</p>
+<h4>Needed permissions</h4>
+<p>monitoring.timeSeries.create</p>
+<p>storage.buckets.create</p>
+<p>storage.buckets.createTagBinding</p>
+<p>storage.buckets.delete</p>
+<p>storage.buckets.deleteTagBinding</p>
+<p>storage.buckets.enableObjectRetention</p>
+<p>storage.buckets.exemptFromIpFilter</p>
+<p>storage.buckets.get</p>
+<p>storage.buckets.getIamPolicy</p>
+<p>storage.buckets.getIpFilter</p>
+<p>storage.buckets.getObjectInsights</p>
+<p>storage.buckets.list</p>
+<p>storage.buckets.listEffectiveTags</p>
+<p>storage.buckets.listTagBindings</p>
+<p>storage.buckets.relocate</p>
+<p>storage.buckets.restore</p>
+<p>storage.buckets.setIamPolicy</p>
+<p>storage.buckets.setIpFilter</p>
+<p>storage.buckets.update</p>
+<p>storage.buckets.viewIntelligenceDetails</p>
+<p>storage.objects.create</p>
+<p>storage.objects.createContext</p>
+<p>storage.objects.delete</p>
+<p>storage.objects.deleteContext</p>
+<p>storage.objects.get</p>
+<p>storage.objects.getIamPolicy</p>
+<p>storage.objects.list</p>
+<p>storage.objects.move</p>
+<p>storage.objects.overrideUnlockedRetention</p>
+<p>storage.objects.restore</p>
+<p>storage.objects.setIamPolicy</p>
+<p>storage.objects.setRetention</p>
+<p>storage.objects.update</p>
+<p>storage.objects.updateContext</p></section>
+  </main>
+</body>
+</html>
